@@ -1,0 +1,86 @@
+{"level":"error","message":"Error setting up database:","service":"economic-api","timestamp":"2025-02-25 20:54:36"}
+{"level":"error","message":"Error setting up database:","service":"economic-api","timestamp":"2025-02-25 20:56:08"}
+{"0":"S","1":"e","10":"u","100":"e","101":"r","102":"e","103":" ","104":"o","105":"n","106":" ","107":"h","108":"o","109":"w","11":"e","110":" ","111":"t","112":"o","113":" ","114":"c","115":"o","116":"n","117":"f","118":"i","119":"g","12":"s","120":"u","121":"r","122":"e","123":" ","124":"o","125":"r","126":" ","127":"a","128":"u","129":"t","13":"t","130":"h","131":"o","132":"r","133":" ","134":"a","135":"u","136":"t","137":"h","138":"e","139":"n","14":"s","140":"t","141":"i","142":"c","143":"a","144":"t","145":"i","146":"o","147":"n","148":" ","149":"p","15":" ","150":"l","151":"u","152":"g","153":"i","154":"n","155":"s","156":".","16":"a","17":"u","18":"t","19":"h","2":"r","20":"e","21":"n","22":"t","23":"i","24":"c","25":"a","26":"t","27":"i","28":"o","29":"n","3":"v","30":" ","31":"u","32":"s","33":"i","34":"n","35":"g","36":" ","37":"u","38":"n","39":"k","4":"e","40":"n","41":"o","42":"w","43":"n","44":" ","45":"p","46":"l","47":"u","48":"g","49":"i","5":"r","50":"n","51":" ","52":"a","53":"u","54":"t","55":"h","56":"_","57":"g","58":"s","59":"s","6":" ","60":"a","61":"p","62":"i","63":"_","64":"c","65":"l","66":"i","67":"e","68":"n","69":"t","7":"r","70":".","71":" ","72":"S","73":"e","74":"e","75":" ","76":"T","77":"O","78":"D","79":"O","8":"e","80":":","81":" ","82":"a","83":"d","84":"d","85":" ","86":"p","87":"l","88":"u","89":"g","9":"q","90":"i","91":"n","92":"s","93":" ","94":"d","95":"o","96":"c","97":"o","98":" ","99":"h","level":"error","message":"Error setting up database:","service":"economic-api","timestamp":"2025-02-25 21:05:01"}
+{"level":"info","message":"Database pool created with 10 connections","service":"economic-api","timestamp":"2025-02-25 21:15:20"}
+{"level":"info","message":"Running migration: 001-invoices","service":"economic-api","timestamp":"2025-02-25 21:15:20"}
+{"level":"info","message":"Migration 001-invoices completed successfully","service":"economic-api","timestamp":"2025-02-25 21:15:20"}
+{"level":"info","message":"Database migrations completed","service":"economic-api","timestamp":"2025-02-25 21:15:20"}
+{"level":"info","message":"Server running on port 3000","service":"economic-api","timestamp":"2025-02-25 21:15:20"}
+{"level":"info","message":"Shutting down gracefully...","service":"economic-api","timestamp":"2025-02-25 21:26:53"}
+{"level":"info","message":"Database pool created with 10 connections","service":"economic-api","timestamp":"2025-02-25 21:29:12"}
+{"level":"info","message":"Running migration: 001-invoices","service":"economic-api","timestamp":"2025-02-25 21:29:12"}
+{"level":"info","message":"Migration 001-invoices completed successfully","service":"economic-api","timestamp":"2025-02-25 21:29:12"}
+{"level":"info","message":"Database migrations completed","service":"economic-api","timestamp":"2025-02-25 21:29:12"}
+{"level":"info","message":"Server running on port 3000","service":"economic-api","timestamp":"2025-02-25 21:29:12"}
+{"level":"info","message":"Starting sync of all invoice types","service":"economic-api","timestamp":"2025-02-25 21:34:35"}
+{"level":"info","message":"Starting sync of draft invoices","service":"economic-api","timestamp":"2025-02-25 21:34:35"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:34:35"}
+{"level":"debug","message":"API Response: 200 from /invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:34:35"}
+{"level":"info","message":"Found 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 21:34:35"}
+{"level":"info","message":"Successfully synced 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 21:34:35"}
+{"0":"t","1":"h","10":"o","11":"o","12":"k","13":"e","14":"d","15":"I","16":"n","17":"v","18":"o","19":"i","2":"i","20":"c","21":"e","22":"s","23":" ","24":"i","25":"s","26":" ","27":"n","28":"o","29":"t","3":"s","30":" ","31":"a","32":" ","33":"f","34":"u","35":"n","36":"c","37":"t","38":"i","39":"o","4":".","40":"n","5":"s","6":"y","7":"n","8":"c","9":"B","level":"error","message":"Error syncing all invoices:","service":"economic-api","timestamp":"2025-02-25 21:34:35"}
+{"ip":"::1","level":"error","message":"500 - this.syncBookedInvoices is not a function","method":"POST","service":"economic-api","stack":"TypeError: this.syncBookedInvoices is not a function\n    at InvoiceService.syncAllInvoices (C:\\Users\\stefa\\Documents\\E-conomics\\src\\modules\\invoices\\invoice.service.js:164:35)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async syncInvoices (C:\\Users\\stefa\\Documents\\E-conomics\\src\\modules\\invoices\\invoice.controller.js:9:22)","timestamp":"2025-02-25 21:34:35","url":"/api/invoices/sync"}
+{"level":"info","message":"Shutting down gracefully...","service":"economic-api","timestamp":"2025-02-25 21:39:14"}
+{"level":"info","message":"Database pool created with 10 connections","service":"economic-api","timestamp":"2025-02-25 21:39:41"}
+{"level":"info","message":"Running migration: 001-invoices","service":"economic-api","timestamp":"2025-02-25 21:39:41"}
+{"level":"info","message":"Migration 001-invoices completed successfully","service":"economic-api","timestamp":"2025-02-25 21:39:42"}
+{"level":"info","message":"Database migrations completed","service":"economic-api","timestamp":"2025-02-25 21:39:42"}
+{"level":"info","message":"Server running on port 3000","service":"economic-api","timestamp":"2025-02-25 21:39:42"}
+{"level":"info","message":"Starting sync of all invoice types","service":"economic-api","timestamp":"2025-02-25 21:47:22"}
+{"level":"info","message":"Starting sync of draft invoices","service":"economic-api","timestamp":"2025-02-25 21:47:22"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:47:22"}
+{"level":"debug","message":"API Response: 200 from /invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:47:23"}
+{"level":"info","message":"Found 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 21:47:23"}
+{"level":"info","message":"Successfully synced 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 21:47:23"}
+{"level":"info","message":"Starting sync of booked invoices","service":"economic-api","timestamp":"2025-02-25 21:47:23"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/booked?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:47:23"}
+{"level":"debug","message":"API Response: 200 from /invoices/booked?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:47:23"}
+{"level":"info","message":"Found 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 21:47:23"}
+{"level":"info","message":"Successfully synced 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 21:47:23"}
+{"level":"info","message":"Shutting down gracefully...","service":"economic-api","timestamp":"2025-02-25 21:55:37"}
+{"level":"info","message":"Database pool created with 10 connections","service":"economic-api","timestamp":"2025-02-25 21:55:49"}
+{"level":"info","message":"Running migration: 001-invoices","service":"economic-api","timestamp":"2025-02-25 21:55:49"}
+{"level":"info","message":"Migration 001-invoices completed successfully","service":"economic-api","timestamp":"2025-02-25 21:55:49"}
+{"level":"info","message":"Database migrations completed","service":"economic-api","timestamp":"2025-02-25 21:55:49"}
+{"level":"info","message":"Server running on port 3000","service":"economic-api","timestamp":"2025-02-25 21:55:49"}
+{"level":"info","message":"Starting sync of all invoice types","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"info","message":"Starting sync of draft invoices","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"debug","message":"API Response: 200 from /invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"info","message":"Found 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"info","message":"Successfully synced 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"info","message":"Starting sync of booked invoices","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/booked?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"debug","message":"API Response: 200 from /invoices/booked?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"info","message":"Found 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"info","message":"Successfully synced 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 21:55:57"}
+{"level":"info","message":"Starting sync of all invoice types","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"info","message":"Starting sync of draft invoices","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"debug","message":"API Response: 200 from /invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"info","message":"Found 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"info","message":"Successfully synced 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"info","message":"Starting sync of booked invoices","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/booked?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"debug","message":"API Response: 200 from /invoices/booked?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"info","message":"Found 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"info","message":"Successfully synced 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 22:33:42"}
+{"level":"info","message":"Starting sync of all invoice types","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"info","message":"Starting sync of draft invoices","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"debug","message":"API Response: 200 from /invoices/drafts?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"info","message":"Found 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"info","message":"Successfully synced 0 draft invoices","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"info","message":"Starting sync of booked invoices","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"debug","message":"API Request: GET https://restapi.e-conomic.com/invoices/booked?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"debug","message":"API Response: 200 from /invoices/booked?skippages=0&pagesize=100","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"info","message":"Found 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"level":"info","message":"Successfully synced 0 booked invoices","service":"economic-api","timestamp":"2025-02-25 22:33:57"}
+{"0":"I","1":"n","10":"t","11":"h","12":" ","13":"I","14":"D","15":" ","16":"s","17":"y","18":"n","19":"c","2":"v","20":" ","21":"n","22":"o","23":"t","24":" ","25":"f","26":"o","27":"u","28":"n","29":"d","3":"o","4":"i","5":"c","6":"e","7":" ","8":"w","9":"i","level":"error","message":"Error getting invoice sync with lines:","service":"economic-api","timestamp":"2025-02-25 22:34:14"}
+{"ip":"::1","level":"error","message":"404 - Invoice with ID sync not found","method":"GET","service":"economic-api","stack":"Error: Invoice with ID sync not found\n    at ApiError.notFound (C:\\Users\\stefa\\Documents\\E-conomics\\src\\modules\\core\\error.handler.js:40:12)\n    at InvoiceService.getInvoiceWithLines (C:\\Users\\stefa\\Documents\\E-conomics\\src\\modules\\invoices\\invoice.service.js:277:24)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async getInvoiceById (C:\\Users\\stefa\\Documents\\E-conomics\\src\\modules\\invoices\\invoice.controller.js:85:23)","timestamp":"2025-02-25 22:34:14","url":"/api/invoices/sync"}
+{"level":"info","message":"Database pool created with 10 connections","service":"economic-api","timestamp":"2025-02-25 23:18:16"}
+{"level":"info","message":"Running migration: 001-invoices","service":"economic-api","timestamp":"2025-02-25 23:18:16"}
+{"level":"info","message":"Migration 001-invoices completed successfully","service":"economic-api","timestamp":"2025-02-25 23:18:16"}
+{"level":"info","message":"Database migrations completed","service":"economic-api","timestamp":"2025-02-25 23:18:16"}
+{"level":"info","message":"Server running on port 3000","service":"economic-api","timestamp":"2025-02-25 23:18:16"}
+{"level":"info","message":"Shutting down gracefully...","service":"economic-api","timestamp":"2025-02-25 23:18:19"}
