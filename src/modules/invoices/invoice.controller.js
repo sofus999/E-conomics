@@ -1,3 +1,4 @@
+// modules/invoices/invoice.controller.js
 const invoiceService = require('./invoice.service');
 const logger = require('../core/logger');
 const { ApiError } = require('../core/error.handler');
@@ -12,10 +13,22 @@ class InvoiceController {
       next(error);
     }
   }
-  // Trigger sync of all invoices
+  
+  // Trigger sync of all invoices across all agreements
   async syncInvoices(req, res, next) {
     try {
       const result = await invoiceService.syncAllInvoices();
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  // Trigger sync of invoices for a specific agreement
+  async syncAgreementInvoices(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await invoiceService.syncInvoicesByAgreementId(id);
       res.json(result);
     } catch (error) {
       next(error);
@@ -48,6 +61,7 @@ class InvoiceController {
       // Extract query parameters
       const {
         customer_number,
+        agreement_number,
         invoice_type,
         payment_status,
         date_from,
@@ -62,6 +76,7 @@ class InvoiceController {
       const filters = {};
       
       if (customer_number) filters.customer_number = parseInt(customer_number);
+      if (agreement_number) filters.agreement_number = parseInt(agreement_number);
       if (invoice_type) filters.invoice_type = invoice_type;
       if (payment_status) filters.payment_status = payment_status;
       if (date_from) filters.date_from = date_from;
@@ -109,19 +124,48 @@ class InvoiceController {
     }
   }
 
-  // Get agreement info
-  async getAgreementInfo(req, res, next) {
+  // Get agreement info for all active agreements
+  async getAllAgreementsInfo(req, res, next) {
     try {
-      const agreementInfo = await invoiceService.getAgreementInfo();
-      res.json(agreementInfo);
+      const agreements = await invoiceService.getActiveAgreements();
+      const agreementsInfo = [];
+      
+      for (const agreement of agreements) {
+        try {
+          const client = invoiceService.getClientForAgreement(agreement.agreement_grant_token);
+          const info = await client.getAgreementInfo();
+          
+          agreementsInfo.push({
+            id: agreement.id,
+            name: agreement.name,
+            agreement_number: agreement.agreement_number,
+            company_name: info.companyName,
+            user_name: info.userName,
+            company_vat_number: info.companyVatNumber
+          });
+        } catch (error) {
+          logger.error(`Error getting info for agreement ${agreement.name}:`, error.message);
+          
+          agreementsInfo.push({
+            id: agreement.id,
+            name: agreement.name,
+            agreement_number: agreement.agreement_number,
+            error: error.message
+          });
+        }
+      }
+      
+      res.json(agreementsInfo);
     } catch (error) {
       next(error);
     }
   }
 
-  // Get invoices for current agreement
+  // Get invoices for a specific agreement
   async getAgreementInvoices(req, res, next) {
     try {
+      const { agreement_number } = req.params;
+      
       // Extract query parameters
       const {
         customer_number,
@@ -156,20 +200,26 @@ class InvoiceController {
         limit: parseInt(limit) || 50
       };
       
-      // Get invoices for current agreement
-      const agreementNumber = invoiceService.initializeAgreementNumber();
-      const result = await invoiceService.getInvoicesByAgreement(agreementNumber, filters, sort, pagination);
+      // Get invoices for the specified agreement
+      const result = await invoiceService.getInvoicesByAgreement(
+        parseInt(agreement_number),
+        filters,
+        sort,
+        pagination
+      );
+      
       res.json(result);
     } catch (error) {
       next(error);
     }
   }
 
-  // Get agreement statistics
+  // Get statistics for a specific agreement
   async getAgreementStatistics(req, res, next) {
     try {
-      const agreementNumber = await invoiceService.initializeAgreementNumber();
+      const { agreement_number } = req.params;
       
+      // Query directly with specific agreement number
       const stats = await db.query(`
         SELECT 
           invoice_type,
@@ -186,7 +236,7 @@ class InvoiceController {
           invoice_type, payment_status
         ORDER BY 
           invoice_type, payment_status
-      `, [agreementNumber]);
+      `, [agreement_number]);
       
       res.json(stats);
     } catch (error) {

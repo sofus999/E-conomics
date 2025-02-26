@@ -4,6 +4,7 @@ const logger = require('./modules/core/logger');
 
 // Import routes
 const invoiceRoutes = require('./modules/invoices/invoice.routes');
+const agreementRoutes = require('./modules/agreements/agreement.routes');
 
 // Create Express app
 const app = express();
@@ -18,6 +19,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/agreements', agreementRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

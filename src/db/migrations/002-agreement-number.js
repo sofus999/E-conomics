@@ -27,7 +27,6 @@ async function up() {
         CREATE OR REPLACE VIEW agreement_invoices AS
         SELECT 
             agreement_number,
-            invoice_type,
             payment_status,
             COUNT(*) as count,
             SUM(net_amount) as total_net_amount,
@@ -35,9 +34,9 @@ async function up() {
         FROM 
             invoices
         GROUP BY 
-            agreement_number, invoice_type, payment_status
+            agreement_number, payment_status
         ORDER BY 
-            agreement_number, invoice_type, payment_status
+            agreement_number, payment_status
       `);
       
       logger.info('Migration 002-agreement-number completed successfully');

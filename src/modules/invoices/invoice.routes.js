@@ -7,6 +7,7 @@ const router = express.Router();
 router.post('/sync', invoiceController.syncInvoices);
 router.post('/sync/draft', invoiceController.syncDraftInvoices);
 router.post('/sync/booked', invoiceController.syncBookedInvoices);
+router.post('/agreements/:id/sync', invoiceController.syncAgreementInvoices);
 
 // Cleanup route
 router.post('/cleanup', invoiceController.cleanupDuplicates);
@@ -17,8 +18,8 @@ router.get('/logs', invoiceController.getSyncLogs);
 router.get('/:id', invoiceController.getInvoiceById);
 
 // Agreement specific routes
-router.get('/agreement/info', invoiceController.getAgreementInfo);
-router.get('/agreement/invoices', invoiceController.getAgreementInvoices);
-router.get('/agreement/statistics', invoiceController.getAgreementStatistics);
+router.get('/agreements', invoiceController.getAllAgreementsInfo);
+router.get('/agreements/:agreement_number/invoices', invoiceController.getAgreementInvoices);
+router.get('/agreements/:agreement_number/statistics', invoiceController.getAgreementStatistics);
 
 module.exports = router;

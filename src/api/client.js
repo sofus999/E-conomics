@@ -1,28 +1,36 @@
+// api/client.js
 const axios = require('axios');
 const config = require('../config');
 const logger = require('../modules/core/logger');
 
 class ApiClient {
-  constructor() {
+  constructor(agreementGrantToken = null) {
     this.baseUrl = config.api.baseUrl;
-    this.client = axios.create({
+    this.appSecretToken = config.api.appSecretToken;
+    this.agreementGrantToken = agreementGrantToken || config.api.agreementGrantToken;
+    
+    this.client = this.createClient();
+  }
+  
+  createClient() {
+    const client = axios.create({
       baseURL: this.baseUrl,
       headers: {
-        'X-AppSecretToken': config.api.appSecretToken,
-        'X-AgreementGrantToken': config.api.agreementGrantToken,
+        'X-AppSecretToken': this.appSecretToken,
+        'X-AgreementGrantToken': this.agreementGrantToken,
         'Content-Type': 'application/json'
       },
       timeout: 10000 // 10 seconds timeout
     });
     
     // Add request logging
-    this.client.interceptors.request.use(request => {
+    client.interceptors.request.use(request => {
       logger.debug(`API Request: ${request.method.toUpperCase()} ${request.baseURL}${request.url}`);
       return request;
     });
     
     // Add response logging
-    this.client.interceptors.response.use(
+    client.interceptors.response.use(
       response => {
         logger.debug(`API Response: ${response.status} from ${response.config.url}`);
         return response;
@@ -37,6 +45,13 @@ class ApiClient {
         return Promise.reject(error);
       }
     );
+    
+    return client;
+  }
+
+  // Factory method to create client for a specific agreement
+  static forAgreement(agreementGrantToken) {
+    return new ApiClient(agreementGrantToken);
   }
 
   async get(endpoint, params = {}) {
@@ -76,6 +91,22 @@ class ApiClient {
       throw error;
     }
   }
+  
+  // Get agreement information for the current token
+  async getAgreementInfo() {
+    try {
+      const selfData = await this.get('/self');
+      return {
+        agreementNumber: selfData.agreementNumber,
+        companyName: selfData.company?.name || 'Unknown',
+        userName: selfData.userName,
+        companyVatNumber: selfData.company?.vatNumber || null
+      };
+    } catch (error) {
+      logger.error('Error fetching agreement info:', error.message);
+      throw error;
+    }
+  }
 }
 
-module.exports = new ApiClient();
+module.exports = ApiClient;

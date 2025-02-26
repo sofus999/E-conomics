@@ -2,17 +2,17 @@ const app = require('./app');
 const config = require('./config');
 const db = require('./db');
 const logger = require('./modules/core/logger');
-const { up } = require('./db/migrations/001-invoices');
 const { up: migrateInvoices } = require('./db/migrations/001-invoices');
 const { up: migrateAgreementNumber } = require('./db/migrations/002-agreement-number');
+const { up: migrateAgreementConfigs } = require('./db/migrations/003-agreement-configs');
 
 // Start the server
 async function startServer() {
   try {
     // Run migrations
-    await up();
     await migrateInvoices();
     await migrateAgreementNumber();
+    await migrateAgreementConfigs();
     logger.info('Database migrations completed');
     
     // Start the server

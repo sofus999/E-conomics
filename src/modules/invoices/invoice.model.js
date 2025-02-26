@@ -3,7 +3,22 @@ const logger = require('../core/logger');
 const { ApiError } = require('../core/error.handler');
 
 class InvoiceModel {
-  // Find invoice by invoice number
+  // Find invoice by invoice number and agreement number
+  static async findByInvoiceAndAgreementNumber(invoiceNumber, agreementNumber) {
+    try {
+      const invoices = await db.query(
+        'SELECT * FROM invoices WHERE invoice_number = ? AND agreement_number = ?',
+        [invoiceNumber, agreementNumber]
+      );
+      
+      return invoices.length > 0 ? invoices[0] : null;
+    } catch (error) {
+      logger.error(`Error finding invoice by number ${invoiceNumber} and agreement ${agreementNumber}:`, error.message);
+      throw error;
+    }
+  }
+
+  // Find invoice by invoice number (legacy method - kept for backward compatibility)
   static async findByInvoiceNumber(invoiceNumber) {
     try {
       const invoices = await db.query(
@@ -21,20 +36,16 @@ class InvoiceModel {
   // Create a new invoice in the database
   static async create(invoiceData) {
     try {
-      // Generate a unique ID for the invoice if not provided
-      const invoiceId = invoiceData.id || `${invoiceData.invoice_type}-${invoiceData.invoice_number || invoiceData.draft_invoice_number}`;
-      
       // Insert invoice record
       const result = await db.query(
         `INSERT INTO invoices (
-          id, invoice_number, draft_invoice_number, customer_number, agreement_number,
+          invoice_number, draft_invoice_number, customer_number, agreement_number,
           currency, exchange_rate, date, due_date, 
           net_amount, gross_amount, vat_amount, 
-          invoice_type, payment_status, customer_name, 
+          payment_status, customer_name, 
           reference_number, notes, data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          invoiceId,
           invoiceData.invoice_number || null,
           invoiceData.draft_invoice_number || null,
           invoiceData.customer_number,
@@ -46,7 +57,6 @@ class InvoiceModel {
           invoiceData.net_amount || 0,
           invoiceData.gross_amount || 0,
           invoiceData.vat_amount || 0,
-          invoiceData.invoice_type,
           invoiceData.payment_status || 'pending',
           invoiceData.customer_name,
           invoiceData.reference_number || null,
@@ -55,7 +65,10 @@ class InvoiceModel {
         ]
       );
       
-      return { id: invoiceId, ...invoiceData };
+      // Get the auto-generated ID
+      const newId = result.insertId;
+      
+      return { id: newId, ...invoiceData };
     } catch (error) {
       logger.error('Error creating invoice:', error.message);
       throw error;
@@ -78,7 +91,6 @@ class InvoiceModel {
           net_amount = ?,
           gross_amount = ?,
           vat_amount = ?,
-          invoice_type = ?,
           payment_status = ?,
           customer_name = ?,
           reference_number = ?,
@@ -98,7 +110,6 @@ class InvoiceModel {
           invoiceData.net_amount || 0,
           invoiceData.gross_amount || 0,
           invoiceData.vat_amount || 0,
-          invoiceData.invoice_type,
           invoiceData.payment_status || 'pending',
           invoiceData.customer_name,
           invoiceData.reference_number || null,
@@ -115,18 +126,23 @@ class InvoiceModel {
     }
   }
   
-  // Smart upsert - uses invoice_number to determine if record exists
+  // Smart upsert - uses invoice_number AND agreement_number to determine if record exists
   static async smartUpsert(invoiceData) {
     try {
       // Get invoice number or draft invoice number
       const invoiceNumber = invoiceData.invoice_number || invoiceData.draft_invoice_number;
+      const agreementNumber = invoiceData.agreement_number;
       
       if (!invoiceNumber) {
         throw new Error('Invoice number or draft invoice number is required for upsert');
       }
       
-      // Check if any version of this invoice exists
-      const existingInvoice = await this.findByInvoiceNumber(invoiceNumber);
+      if (!agreementNumber) {
+        throw new Error('Agreement number is required for upsert');
+      }
+      
+      // Check if this specific invoice exists for this agreement
+      const existingInvoice = await this.findByInvoiceAndAgreementNumber(invoiceNumber, agreementNumber);
       
       if (existingInvoice) {
         // Determine if new status takes precedence
@@ -169,26 +185,6 @@ class InvoiceModel {
     return (statusPriority[newStatus] || 0) >= (statusPriority[currentStatus] || 0);
   }
   
-  // Original upsert method (kept for backward compatibility)
-  static async upsert(invoiceData) {
-    const invoiceId = invoiceData.id || 
-      `${invoiceData.invoice_type}-${invoiceData.draft_invoice_number || invoiceData.invoice_number}`;
-    
-    try {
-      // Check if invoice exists
-      const existing = await this.findById(invoiceId);
-      
-      if (existing) {
-        return await this.update(invoiceId, { ...invoiceData, id: invoiceId });
-      } else {
-        return await this.create({ ...invoiceData, id: invoiceId });
-      }
-    } catch (error) {
-      logger.error(`Error upserting invoice ${invoiceId}:`, error.message);
-      throw error;
-    }
-  }
-  
   // Find invoice by ID
   static async findById(id) {
     try {
@@ -222,11 +218,6 @@ class InvoiceModel {
         if (filters.agreement_number) {
           conditions.push('agreement_number = ?');
           whereParams.push(filters.agreement_number);
-        }
-        
-        if (filters.invoice_type) {
-          conditions.push('invoice_type = ?');
-          whereParams.push(filters.invoice_type);
         }
         
         if (filters.payment_status) {
