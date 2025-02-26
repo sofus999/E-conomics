@@ -4,7 +4,8 @@ module.exports = {
   api: {
     baseUrl: process.env.API_BASE_URL || 'https://restapi.e-conomic.com',
     appSecretToken: process.env.APP_SECRET_TOKEN,
-    agreementGrantToken: process.env.AGREEMENT_GRANT_TOKEN
+    agreementGrantToken: process.env.AGREEMENT_GRANT_TOKEN,
+    agreementNumber: process.env.AGREEMENT_NUMBER || null
   },
   db: {
     host: process.env.DB_HOST || 'localhost',

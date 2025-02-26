@@ -3,29 +3,42 @@ const logger = require('../core/logger');
 const { ApiError } = require('../core/error.handler');
 
 class InvoiceModel {
+  // Find invoice by invoice number
+  static async findByInvoiceNumber(invoiceNumber) {
+    try {
+      const invoices = await db.query(
+        'SELECT * FROM invoices WHERE invoice_number = ?',
+        [invoiceNumber]
+      );
+      
+      return invoices.length > 0 ? invoices[0] : null;
+    } catch (error) {
+      logger.error(`Error finding invoice by number ${invoiceNumber}:`, error.message);
+      throw error;
+    }
+  }
+
   // Create a new invoice in the database
   static async create(invoiceData) {
-    if (!invoiceData.id) {
-      throw new Error('Invoice ID is required for upsert operation');
-    }
     try {
-      // Generate a unique ID for the invoice
-      const invoiceId = invoiceData.id || `${invoiceData.invoice_type}-${invoiceData.draft_invoice_number || invoiceData.invoice_number}`;
+      // Generate a unique ID for the invoice if not provided
+      const invoiceId = invoiceData.id || `${invoiceData.invoice_type}-${invoiceData.invoice_number || invoiceData.draft_invoice_number}`;
       
       // Insert invoice record
       const result = await db.query(
         `INSERT INTO invoices (
-          id, invoice_number, draft_invoice_number, customer_number, 
+          id, invoice_number, draft_invoice_number, customer_number, agreement_number,
           currency, exchange_rate, date, due_date, 
           net_amount, gross_amount, vat_amount, 
           invoice_type, payment_status, customer_name, 
           reference_number, notes, data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           invoiceId,
           invoiceData.invoice_number || null,
           invoiceData.draft_invoice_number || null,
           invoiceData.customer_number,
+          invoiceData.agreement_number || null,
           invoiceData.currency,
           invoiceData.exchange_rate || null,
           invoiceData.date,
@@ -51,15 +64,13 @@ class InvoiceModel {
   
   // Update existing invoice
   static async update(id, invoiceData) {
-    if (!invoiceData.id) {
-      throw new Error('Invoice ID is required for upsert operation');
-    }
     try {
       await db.query(
         `UPDATE invoices SET
           invoice_number = ?,
           draft_invoice_number = ?,
           customer_number = ?,
+          agreement_number = ?,
           currency = ?,
           exchange_rate = ?,
           date = ?,
@@ -72,12 +83,14 @@ class InvoiceModel {
           customer_name = ?,
           reference_number = ?,
           notes = ?,
-          data = ?
+          data = ?,
+          updated_at = CURRENT_TIMESTAMP
         WHERE id = ?`,
         [
           invoiceData.invoice_number || null,
           invoiceData.draft_invoice_number || null,
           invoiceData.customer_number,
+          invoiceData.agreement_number || null,
           invoiceData.currency,
           invoiceData.exchange_rate || null,
           invoiceData.date,
@@ -102,7 +115,61 @@ class InvoiceModel {
     }
   }
   
-  // Create or update invoice (upsert)
+  // Smart upsert - uses invoice_number to determine if record exists
+  static async smartUpsert(invoiceData) {
+    try {
+      // Get invoice number or draft invoice number
+      const invoiceNumber = invoiceData.invoice_number || invoiceData.draft_invoice_number;
+      
+      if (!invoiceNumber) {
+        throw new Error('Invoice number or draft invoice number is required for upsert');
+      }
+      
+      // Check if any version of this invoice exists
+      const existingInvoice = await this.findByInvoiceNumber(invoiceNumber);
+      
+      if (existingInvoice) {
+        // Determine if new status takes precedence
+        const updateStatus = this.shouldUpdateStatus(existingInvoice.payment_status, invoiceData.payment_status);
+        
+        // If we should update the status, use the new one, otherwise keep the existing one
+        const newStatus = updateStatus ? invoiceData.payment_status : existingInvoice.payment_status;
+        
+        // Create an updated data object that prioritizes new data
+        const updatedData = {
+          ...existingInvoice,
+          ...invoiceData,
+          payment_status: newStatus,
+          id: existingInvoice.id // Keep the original ID to update the correct record
+        };
+        
+        // Update the existing invoice
+        return await this.update(existingInvoice.id, updatedData);
+      } else {
+        // Create a new invoice
+        return await this.create(invoiceData);
+      }
+    } catch (error) {
+      logger.error(`Error upserting invoice:`, error.message);
+      throw error;
+    }
+  }
+  
+  // Helper method to determine if status should be updated
+  static shouldUpdateStatus(currentStatus, newStatus) {
+    // Status precedence: overdue > paid > pending
+    const statusPriority = {
+      'overdue': 3,
+      'paid': 2,
+      'partial': 1,
+      'pending': 0
+    };
+    
+    // Higher number = higher priority
+    return (statusPriority[newStatus] || 0) >= (statusPriority[currentStatus] || 0);
+  }
+  
+  // Original upsert method (kept for backward compatibility)
   static async upsert(invoiceData) {
     const invoiceId = invoiceData.id || 
       `${invoiceData.invoice_type}-${invoiceData.draft_invoice_number || invoiceData.invoice_number}`;
@@ -150,6 +217,11 @@ class InvoiceModel {
         if (filters.customer_number) {
           conditions.push('customer_number = ?');
           whereParams.push(filters.customer_number);
+        }
+        
+        if (filters.agreement_number) {
+          conditions.push('agreement_number = ?');
+          whereParams.push(filters.agreement_number);
         }
         
         if (filters.invoice_type) {
@@ -214,6 +286,20 @@ class InvoiceModel {
       };
     } catch (error) {
       logger.error('Error finding invoices:', error.message);
+      throw error;
+    }
+  }
+  
+  // Find distinct invoice numbers
+  static async findDistinctInvoiceNumbers() {
+    try {
+      const results = await db.query(
+        'SELECT DISTINCT invoice_number FROM invoices WHERE invoice_number IS NOT NULL'
+      );
+      
+      return results.map(row => row.invoice_number);
+    } catch (error) {
+      logger.error('Error finding distinct invoice numbers:', error.message);
       throw error;
     }
   }

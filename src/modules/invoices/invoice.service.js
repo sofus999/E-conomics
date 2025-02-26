@@ -4,8 +4,45 @@ const InvoiceModel = require('./invoice.model');
 const logger = require('../core/logger');
 const { ApiError } = require('../core/error.handler');
 const db = require('../../db');
+const config = require('../../config');
 
 class InvoiceService {
+  constructor() {
+    // Initialize agreement number if available
+    this.agreementNumber = null;
+    this.initializeAgreementNumber();
+  }
+  
+  // Initialize agreement number
+  async initializeAgreementNumber() {
+    if (!this.agreementNumber) {
+      try {
+        // Try to get from config
+        if (config.api.agreementNumber) {
+          this.agreementNumber = config.api.agreementNumber;
+          logger.info(`Using agreement number from config: ${this.agreementNumber}`);
+          return this.agreementNumber;
+        }
+        
+        // Try to get from API
+        const selfData = await apiClient.get(endpoints.SELF);
+        if (selfData && selfData.agreementNumber) {
+          this.agreementNumber = selfData.agreementNumber;
+          logger.info(`Retrieved agreement number from API: ${this.agreementNumber}`);
+          return this.agreementNumber;
+        }
+        
+        logger.warn('Could not determine agreement number');
+        return null;
+      } catch (error) {
+        logger.error('Error initializing agreement number:', error.message);
+        return null;
+      }
+    }
+    
+    return this.agreementNumber;
+  }
+
   // Transform API invoice data to our database model
   transformInvoiceData(invoice, type) {
     // Extract customer name from invoice data
@@ -20,6 +57,7 @@ class InvoiceService {
     const transformed = {
       customer_number: customerNumber,
       customer_name: customerName,
+      agreement_number: this.agreementNumber,
       currency: invoice.currency,
       exchange_rate: invoice.exchangeRate,
       date: invoice.date,
@@ -34,47 +72,39 @@ class InvoiceService {
     // In the database, invoice_type is enum('draft','booked','paid','unpaid')
     let dbInvoiceType;
     let paymentStatus;
-    let prefix;
     
     // Handle different invoice types and set appropriate database values
     if (type === 'draft') {
       dbInvoiceType = 'draft';
       paymentStatus = 'pending';
-      prefix = 'draft';
       transformed.draft_invoice_number = invoice.draftInvoiceNumber;
     } else if (type === 'booked') {
       dbInvoiceType = 'booked';
       paymentStatus = 'pending';
-      prefix = 'booked';
     } else if (type === 'paid') {
       dbInvoiceType = 'paid';
       paymentStatus = 'paid';
-      prefix = 'paid';
     } else if (type === 'unpaid') {
       dbInvoiceType = 'unpaid';
       paymentStatus = 'pending';
-      prefix = 'unpaid';
     } else if (type === 'overdue') {
       // Map 'overdue' to 'unpaid' for database compatibility
       dbInvoiceType = 'unpaid';
       paymentStatus = 'overdue';
-      prefix = 'overdue';
     } else if (type === 'not-due') {
       // Map 'not-due' to 'unpaid' for database compatibility
       dbInvoiceType = 'unpaid';
       paymentStatus = 'pending';
-      prefix = 'notdue';
     }
     
     // Add mapped values to transformed data
     transformed.invoice_type = dbInvoiceType;
     transformed.payment_status = paymentStatus;
     
-    // Set invoice ID with appropriate prefix and number
+    // Set invoice number
     const invoiceNumber = invoice.bookedInvoiceNumber || invoice.draftInvoiceNumber;
     if (invoiceNumber) {
       transformed.invoice_number = invoiceNumber;
-      transformed.id = `${prefix}-${invoiceNumber}`;
     }
     
     // Extract any notes from the invoice
@@ -127,6 +157,9 @@ class InvoiceService {
     try {
       logger.info('Starting sync of draft invoices');
       
+      // Make sure agreement number is initialized
+      await this.initializeAgreementNumber();
+      
       // Fetch all draft invoices
       const drafts = await apiClient.getPaginated(endpoints.INVOICES_DRAFTS);
       logger.info(`Found ${drafts.length} draft invoices`);
@@ -136,8 +169,8 @@ class InvoiceService {
         // Transform API data to our model
         const invoiceData = this.transformInvoiceData(draft, 'draft');
         
-        // Upsert the invoice
-        const savedInvoice = await InvoiceModel.upsert(invoiceData);
+        // Smart upsert the invoice
+        const savedInvoice = await InvoiceModel.smartUpsert(invoiceData);
         
         // Process invoice lines if available
         if (draft.lines) {
@@ -190,6 +223,9 @@ class InvoiceService {
     try {
       logger.info('Starting sync of booked invoices');
       
+      // Make sure agreement number is initialized
+      await this.initializeAgreementNumber();
+      
       // Fetch all booked invoices
       const booked = await apiClient.getPaginated(endpoints.INVOICES_BOOKED);
       logger.info(`Found ${booked.length} booked invoices`);
@@ -199,8 +235,8 @@ class InvoiceService {
         // Transform API data to our model
         const invoiceData = this.transformInvoiceData(invoice, 'booked');
         
-        // Upsert the invoice
-        const savedInvoice = await InvoiceModel.upsert(invoiceData);
+        // Smart upsert the invoice
+        const savedInvoice = await InvoiceModel.smartUpsert(invoiceData);
         
         // Process invoice lines if available
         if (invoice.lines) {
@@ -253,6 +289,9 @@ class InvoiceService {
     try {
       logger.info('Starting sync of paid invoices');
       
+      // Make sure agreement number is initialized
+      await this.initializeAgreementNumber();
+      
       // Fetch all paid invoices
       const paid = await apiClient.getPaginated(endpoints.INVOICES_PAID);
       logger.info(`Found ${paid.length} paid invoices`);
@@ -262,8 +301,8 @@ class InvoiceService {
         // Transform API data to our model
         const invoiceData = this.transformInvoiceData(invoice, 'paid');
         
-        // Upsert the invoice
-        const savedInvoice = await InvoiceModel.upsert(invoiceData);
+        // Smart upsert the invoice
+        const savedInvoice = await InvoiceModel.smartUpsert(invoiceData);
         
         // Process invoice lines if available
         if (invoice.lines) {
@@ -316,6 +355,9 @@ class InvoiceService {
     try {
       logger.info('Starting sync of unpaid invoices');
       
+      // Make sure agreement number is initialized
+      await this.initializeAgreementNumber();
+      
       // Fetch all unpaid invoices
       const unpaid = await apiClient.getPaginated(endpoints.INVOICES_UNPAID);
       logger.info(`Found ${unpaid.length} unpaid invoices`);
@@ -325,8 +367,8 @@ class InvoiceService {
         // Transform API data to our model
         const invoiceData = this.transformInvoiceData(invoice, 'unpaid');
         
-        // Upsert the invoice
-        const savedInvoice = await InvoiceModel.upsert(invoiceData);
+        // Smart upsert the invoice
+        const savedInvoice = await InvoiceModel.smartUpsert(invoiceData);
         
         // Process invoice lines if available
         if (invoice.lines) {
@@ -379,6 +421,9 @@ class InvoiceService {
     try {
       logger.info('Starting sync of overdue invoices');
       
+      // Make sure agreement number is initialized
+      await this.initializeAgreementNumber();
+      
       // Fetch all overdue invoices
       const overdue = await apiClient.getPaginated(endpoints.INVOICES_OVERDUE);
       logger.info(`Found ${overdue.length} overdue invoices`);
@@ -388,8 +433,8 @@ class InvoiceService {
         // Transform API data to our model
         const invoiceData = this.transformInvoiceData(invoice, 'overdue');
         
-        // Upsert the invoice
-        const savedInvoice = await InvoiceModel.upsert(invoiceData);
+        // Smart upsert the invoice
+        const savedInvoice = await InvoiceModel.smartUpsert(invoiceData);
         
         // Process invoice lines if available
         if (invoice.lines) {
@@ -442,6 +487,9 @@ class InvoiceService {
     try {
       logger.info('Starting sync of not-due invoices');
       
+      // Make sure agreement number is initialized
+      await this.initializeAgreementNumber();
+      
       // Fetch all not-due invoices
       const notDue = await apiClient.getPaginated(endpoints.INVOICES_NOT_DUE);
       logger.info(`Found ${notDue.length} not-due invoices`);
@@ -451,8 +499,8 @@ class InvoiceService {
         // Transform API data to our model
         const invoiceData = this.transformInvoiceData(invoice, 'not-due');
         
-        // Upsert the invoice
-        const savedInvoice = await InvoiceModel.upsert(invoiceData);
+        // Smart upsert the invoice
+        const savedInvoice = await InvoiceModel.smartUpsert(invoiceData);
         
         // Process invoice lines if available
         if (invoice.lines) {
@@ -505,6 +553,9 @@ class InvoiceService {
     
     try {
       logger.info('Starting sync of all invoice types');
+      
+      // Make sure agreement number is initialized
+      await this.initializeAgreementNumber();
       
       // Sync draft invoices
       results.draft = await this.syncDraftInvoices();
@@ -595,6 +646,11 @@ class InvoiceService {
   // Get invoices with filtering, sorting, and pagination
   async getInvoices(filters = {}, sort = {}, pagination = {}) {
     try {
+      // Add agreement filter if available
+      if (this.agreementNumber) {
+        filters.agreement_number = this.agreementNumber;
+      }
+      
       return await InvoiceModel.find(filters, sort, pagination);
     } catch (error) {
       logger.error('Error getting invoices:', error.message);
@@ -641,6 +697,14 @@ class InvoiceService {
   // Get invoice statistics
   async getInvoiceStatistics() {
     try {
+      // Include agreement number filter if available
+      const whereClause = this.agreementNumber 
+        ? 'WHERE agreement_number = ?' 
+        : '';
+      const params = this.agreementNumber 
+        ? [this.agreementNumber] 
+        : [];
+      
       const stats = await db.query(`
         SELECT 
           invoice_type,
@@ -653,15 +717,100 @@ class InvoiceService {
           MAX(date) as newest_date
         FROM 
           invoices
+        ${whereClause}
         GROUP BY 
           invoice_type, payment_status
         ORDER BY 
           invoice_type, payment_status
-      `);
+      `, params);
 
       return stats;
     } catch (error) {
       logger.error('Error getting invoice statistics:', error.message);
+      throw error;
+    }
+  }
+  
+  // Get agreement info
+  async getAgreementInfo() {
+    try {
+      const selfData = await apiClient.get(endpoints.SELF);
+      return {
+        agreementNumber: selfData.agreementNumber,
+        companyName: selfData.company?.name || 'Unknown',
+        userName: selfData.userName,
+        companyVatNumber: selfData.company?.vatNumber || null,
+        agreementType: selfData.agreementType,
+        bankInformation: selfData.bankInformation
+      };
+    } catch (error) {
+      logger.error('Error fetching agreement info:', error.message);
+      throw error;
+    }
+  }
+  
+  // Clean up duplicate invoices based on invoice_number
+  async cleanupDuplicateInvoices() {
+    const startTime = new Date();
+    let cleanedCount = 0;
+    
+    try {
+      logger.info('Starting cleanup of duplicate invoices');
+      
+      // Get all distinct invoice numbers
+      const invoiceNumbers = await InvoiceModel.findDistinctInvoiceNumbers();
+      
+      // Process each invoice number
+      for (const invoiceNumber of invoiceNumbers) {
+        // Find all invoices with this number
+        const invoices = await db.query(
+          'SELECT * FROM invoices WHERE invoice_number = ? ORDER BY updated_at DESC',
+          [invoiceNumber]
+        );
+        
+        // Skip if there's only one or none
+        if (invoices.length <= 1) continue;
+        
+        // Keep the most recently updated one
+        const mostRecent = invoices[0];
+        const duplicates = invoices.slice(1);
+        
+        // Delete the duplicates
+        for (const dup of duplicates) {
+          await db.query('DELETE FROM invoices WHERE id = ?', [dup.id]);
+          cleanedCount++;
+        }
+      }
+      
+      logger.info(`Cleanup complete. Removed ${cleanedCount} duplicate invoices`);
+      
+      // Record cleanup
+      await InvoiceModel.recordSyncLog(
+        'invoices_cleanup',
+        'cleanup',
+        'success',
+        cleanedCount,
+        null,
+        startTime
+      );
+      
+      return {
+        status: 'success',
+        count: cleanedCount
+      };
+    } catch (error) {
+      logger.error('Error cleaning up duplicate invoices:', error.message);
+      
+      // Record failed cleanup
+      await InvoiceModel.recordSyncLog(
+        'invoices_cleanup',
+        'cleanup',
+        'error',
+        cleanedCount,
+        error.message,
+        startTime
+      );
+      
       throw error;
     }
   }

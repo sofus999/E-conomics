@@ -3,12 +3,16 @@ const config = require('./config');
 const db = require('./db');
 const logger = require('./modules/core/logger');
 const { up } = require('./db/migrations/001-invoices');
+const { up: migrateInvoices } = require('./db/migrations/001-invoices');
+const { up: migrateAgreementNumber } = require('./db/migrations/002-agreement-number');
 
 // Start the server
 async function startServer() {
   try {
     // Run migrations
     await up();
+    await migrateInvoices();
+    await migrateAgreementNumber();
     logger.info('Database migrations completed');
     
     // Start the server
