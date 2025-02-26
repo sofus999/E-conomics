@@ -37,6 +37,28 @@ class AgreementController {
     }
   }
   
+  // Create a new agreement with just a token
+  async createAgreementFromToken(req, res, next) {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        res.status(400).json({ 
+          error: { 
+            message: 'Missing token in request body',
+            code: 'MISSING_TOKEN'
+          } 
+        });
+        return;
+      }
+      
+      const newAgreement = await agreementService.createAgreementFromToken(token);
+      res.status(201).json(newAgreement);
+    } catch (error) {
+      next(error);
+    }
+  }
+  
   // Update an agreement
   async updateAgreement(req, res, next) {
     try {
@@ -63,12 +85,12 @@ class AgreementController {
   // Test agreement connection
   async testAgreementConnection(req, res, next) {
     try {
-      const token = req.body.agreement_grant_token;
+      const token = req.body.agreement_grant_token || req.body.token;
       
       if (!token) {
         res.status(400).json({ 
           error: { 
-            message: 'Missing agreement_grant_token in request body',
+            message: 'Missing agreement_grant_token or token in request body',
             code: 'MISSING_TOKEN'
           } 
         });
@@ -79,8 +101,21 @@ class AgreementController {
       res.json({
         status: 'success',
         agreement_number: info.agreementNumber,
-        company_name: info.companyName
+        company_name: info.companyName,
+        user_name: info.userName,
+        company_vat_number: info.companyVatNumber
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  // Verify and update agreement with latest data from API
+  async verifyAgreement(req, res, next) {
+    try {
+      const { id } = req.params;
+      const agreement = await agreementService.verifyAndUpdateAgreement(id);
+      res.json(agreement);
     } catch (error) {
       next(error);
     }

@@ -10,12 +10,10 @@ const config = require('../../config');
 
 class InvoiceService {
   constructor() {
-    // Default agreement number from config used as fallback
+    // Default agreement number from config
     this.defaultAgreementNumber = config.api.agreementNumber;
   }
   
-  // Initialize agreement number is now deprecated - use getAgreementInfo instead
-  // Keep for backward compatibility
   async initializeAgreementNumber() {
     return this.defaultAgreementNumber;
   }
@@ -134,7 +132,7 @@ class InvoiceService {
     let totalCount = 0;
     
     try {
-      logger.info(`Starting sync for agreement ${agreement.name} (${agreement.agreement_number})`);
+      logger.info(`Starting sync for agreement ${agreement.name} (${agreement.agreement_number || 'Unknown'})`);
       
       // Create client for this agreement
       const client = this.getClientForAgreement(agreement.agreement_grant_token);
@@ -142,21 +140,38 @@ class InvoiceService {
       // Get the agreement number directly from the API to confirm
       const agreementInfo = await client.getAgreementInfo();
       const agreementNumber = agreementInfo.agreementNumber;
+      const companyName = agreementInfo.companyName || agreement.name;
       
-      if (agreementInfo.agreementNumber !== agreement.agreement_number || 
-          (agreementInfo.companyName && agreementInfo.companyName !== agreement.name)) {
+      let needsUpdate = false;
+      let updateData = {};
+      
+      // Check if agreement number needs update
+      if (!agreement.agreement_number || agreement.agreement_number !== agreementNumber) {
+        logger.warn(`Agreement number mismatch: stored=${agreement.agreement_number || 'null'}, API=${agreementNumber}`);
+        needsUpdate = true;
+        updateData.agreement_number = agreementNumber;
+      }
+      
+      // Check if company name needs update
+      if (companyName && companyName !== 'Unknown' && companyName !== agreement.name) {
+        logger.warn(`Agreement name mismatch: stored=${agreement.name}, API=${companyName}`);
+        needsUpdate = true;
+        updateData.name = companyName;
+      }
+      
+      // Update the agreement if needed
+      if (needsUpdate) {
+        await AgreementModel.update(agreement.id, updateData);
         
-        logger.info(`Updating agreement info: ${agreement.name} -> ${agreementInfo.companyName}`);
+        // Update local object with new values
+        if (updateData.agreement_number) {
+          agreement.agreement_number = updateData.agreement_number;
+        }
+        if (updateData.name) {
+          agreement.name = updateData.name;
+        }
         
-        // Update both number and name
-        await AgreementModel.update(agreement.id, { 
-          agreement_number: agreementInfo.agreementNumber,
-          name: agreementInfo.companyName || agreement.name
-        });
-        
-        // Use the updated values
-        agreement.agreement_number = agreementInfo.agreementNumber;
-        agreement.name = agreementInfo.companyName || agreement.name;
+        logger.info(`Updated agreement data for ${agreement.id}: ${JSON.stringify(updateData)}`);
       }
       
       // Sync each selected type
@@ -250,7 +265,7 @@ class InvoiceService {
       };
       
     } catch (error) {
-      logger.error(`Error syncing invoices for agreement ${agreement.agreement_number}:`, error.message);
+      logger.error(`Error syncing invoices for agreement ${agreement.id}:`, error.message);
       
       // Record failed sync
       await InvoiceModel.recordSyncLog(

@@ -8,25 +8,26 @@ async function up() {
     await db.query(`
       CREATE TABLE IF NOT EXISTS agreement_configs (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        agreement_number INT NOT NULL,
+        name VARCHAR(255) DEFAULT 'Pending API Verification',
+        agreement_number INT NULL,
         agreement_grant_token VARCHAR(255) NOT NULL,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY idx_agreement_grant_token (agreement_grant_token),
         UNIQUE KEY idx_agreement_number (agreement_number)
       )
     `);
     
     // Insert default agreement from environment variables if available
-    if (process.env.AGREEMENT_GRANT_TOKEN && process.env.AGREEMENT_NUMBER) {
+    if (process.env.AGREEMENT_GRANT_TOKEN) {
       await db.query(`
-        INSERT INTO agreement_configs (name, agreement_number, agreement_grant_token)
+        INSERT INTO agreement_configs (agreement_grant_token, agreement_number, name)
         VALUES (?, ?, ?)
       `, [
-        'Default Agreement',
-        process.env.AGREEMENT_NUMBER,
-        process.env.AGREEMENT_GRANT_TOKEN
+        process.env.AGREEMENT_GRANT_TOKEN,
+        process.env.AGREEMENT_NUMBER || null,
+        'Default Agreement'
       ]);
     }
     

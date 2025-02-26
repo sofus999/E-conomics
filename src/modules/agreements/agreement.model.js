@@ -50,14 +50,37 @@ class AgreementModel {
       throw error;
     }
   }
+
+  // Get agreement by token
+  static async getByToken(token) {
+    try {
+      const agreements = await db.query(
+        'SELECT * FROM agreement_configs WHERE agreement_grant_token = ?',
+        [token]
+      );
+      
+      return agreements.length > 0 ? agreements[0] : null;
+    } catch (error) {
+      logger.error('Error getting agreement by token:', error.message);
+      throw error;
+    }
+  }
   
-  // Create a new agreement
+  // Create a new agreement (only token required)
   static async create(agreementData) {
     try {
-      // Check if agreement already exists
-      const existing = await this.getByAgreementNumber(agreementData.agreement_number);
-      if (existing) {
-        throw ApiError.badRequest(`Agreement with number ${agreementData.agreement_number} already exists`);
+      // Check if agreement with this token already exists
+      const existingByToken = await this.getByToken(agreementData.agreement_grant_token);
+      if (existingByToken) {
+        throw ApiError.badRequest(`Agreement with this token already exists (ID: ${existingByToken.id})`);
+      }
+      
+      // Check if agreement number already exists (if provided)
+      if (agreementData.agreement_number) {
+        const existingByNumber = await this.getByAgreementNumber(agreementData.agreement_number);
+        if (existingByNumber) {
+          throw ApiError.badRequest(`Agreement with number ${agreementData.agreement_number} already exists`);
+        }
       }
       
       const result = await db.query(
@@ -65,8 +88,8 @@ class AgreementModel {
           name, agreement_number, agreement_grant_token, is_active
         ) VALUES (?, ?, ?, ?)`,
         [
-          agreementData.name,
-          agreementData.agreement_number,
+          agreementData.name || 'Pending API Verification',
+          agreementData.agreement_number || null,
           agreementData.agreement_grant_token,
           agreementData.is_active !== undefined ? agreementData.is_active : true
         ]

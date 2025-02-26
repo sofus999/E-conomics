@@ -24,12 +24,16 @@ class AgreementService {
     }
   }
   
-  // Create a new agreement
+  // Create a new agreement with just a token
   async createAgreement(agreementData) {
     try {
-      // Validate agreement token by testing it
-      await this.testAgreementConnection(agreementData.agreement_grant_token);
+      // If this is a token-only request, verify and populate data
+      if (agreementData.agreement_grant_token && !agreementData.agreement_number) {
+        return await this.createAgreementFromToken(agreementData.agreement_grant_token, 
+          agreementData.is_active !== undefined ? agreementData.is_active : true);
+      }
       
+      // Regular create with provided data
       return await AgreementModel.create(agreementData);
     } catch (error) {
       logger.error('Error creating agreement:', error.message);
@@ -37,31 +41,44 @@ class AgreementService {
     }
   }
   
-  async createAgreementWithVerification(agreementData) {
+  // Create agreement from just a token
+  async createAgreementFromToken(token, isActive = true) {
     try {
-      // First test connection & get actual data from API
-      const apiInfo = await this.testAgreementConnection(agreementData.agreement_grant_token);
+      // Validate token by testing
+      const apiInfo = await this.testAgreementConnection(token);
       
-      // Create complete data with verified values
-      const verifiedData = {
-        name: apiInfo.companyName || agreementData.name,
+      // Create agreement with verified data
+      const agreementData = {
+        name: apiInfo.companyName || 'Unknown Company',
         agreement_number: apiInfo.agreementNumber,
-        agreement_grant_token: agreementData.agreement_grant_token,
-        is_active: agreementData.is_active !== undefined ? agreementData.is_active : true
+        agreement_grant_token: token,
+        is_active: isActive
       };
       
-      return await AgreementModel.create(verifiedData);
+      logger.info(`Creating agreement from API data: ${agreementData.name} (${agreementData.agreement_number})`);
+      
+      return await AgreementModel.create(agreementData);
     } catch (error) {
-      logger.error('Error creating verified agreement:', error.message);
+      logger.error('Error creating agreement from token:', error.message);
       throw error;
     }
   }
+  
   // Update an agreement
   async updateAgreement(id, agreementData) {
     try {
-      // If token is updated, validate it
+      // If token is updated, validate it and get latest info
       if (agreementData.agreement_grant_token) {
-        await this.testAgreementConnection(agreementData.agreement_grant_token);
+        const apiInfo = await this.testAgreementConnection(agreementData.agreement_grant_token);
+        
+        // Populate with API data if not explicitly provided
+        if (!agreementData.name && apiInfo.companyName) {
+          agreementData.name = apiInfo.companyName;
+        }
+        
+        if (!agreementData.agreement_number && apiInfo.agreementNumber) {
+          agreementData.agreement_number = apiInfo.agreementNumber;
+        }
       }
       
       return await AgreementModel.update(id, agreementData);
@@ -95,6 +112,34 @@ class AgreementService {
     } catch (error) {
       logger.error('Error testing agreement connection:', error.message);
       throw ApiError.badRequest(`Invalid agreement token: ${error.message}`);
+    }
+  }
+  
+  // Verify and update agreement data from API
+  async verifyAndUpdateAgreement(id) {
+    try {
+      // Get current agreement
+      const agreement = await AgreementModel.getById(id);
+      
+      // Test connection and get current API data
+      const apiInfo = await this.testAgreementConnection(agreement.agreement_grant_token);
+      
+      // Update agreement with latest data
+      const updatedData = {
+        name: apiInfo.companyName || agreement.name,
+        agreement_number: apiInfo.agreementNumber
+      };
+      
+      // Update agreement details with correct name and number from API data
+      if (updatedData.name !== agreement.name || updatedData.agreement_number !== agreement.agreement_number) {
+        logger.info(`Updating agreement ${id} with latest API data`);
+        return await AgreementModel.update(id, updatedData);
+      }
+      
+      return agreement;
+    } catch (error) {
+      logger.error(`Error verifying/updating agreement ${id}:`, error.message);
+      throw error;
     }
   }
 }
