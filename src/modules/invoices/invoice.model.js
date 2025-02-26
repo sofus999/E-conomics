@@ -5,6 +5,9 @@ const { ApiError } = require('../core/error.handler');
 class InvoiceModel {
   // Create a new invoice in the database
   static async create(invoiceData) {
+    if (!invoiceData.id) {
+      throw new Error('Invoice ID is required for upsert operation');
+    }
     try {
       // Generate a unique ID for the invoice
       const invoiceId = invoiceData.id || `${invoiceData.invoice_type}-${invoiceData.draft_invoice_number || invoiceData.invoice_number}`;
@@ -48,6 +51,9 @@ class InvoiceModel {
   
   // Update existing invoice
   static async update(id, invoiceData) {
+    if (!invoiceData.id) {
+      throw new Error('Invoice ID is required for upsert operation');
+    }
     try {
       await db.query(
         `UPDATE invoices SET
