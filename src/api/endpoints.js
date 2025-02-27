@@ -2,7 +2,7 @@ module.exports = {
   // Core endpoints
   SELF: '/self',
   
-  // Invoice endpoints
+  // Invoice specific endpoints
   INVOICES: '/invoices',
   INVOICES_DRAFTS: '/invoices/drafts',
   INVOICES_BOOKED: '/invoices/booked',
@@ -11,9 +11,20 @@ module.exports = {
   INVOICES_OVERDUE: '/invoices/overdue',
   INVOICES_NOT_DUE: '/invoices/not-due',
   
+  // General endpoints
+  PAYMENT_TERMS: '/payment-terms',
+  PRODUCT_GROUPS: '/product-groups',
+  PRODUCTS: '/products',
+  SUPPLIER_GROUPS: '/supplier-groups',
+  SUPPLIERS: '/suppliers',
+  VAT_ACCOUNTS: '/vat-accounts',
+
   // Customer endpoints
   CUSTOMERS: '/customers',
   
   // Helper functions
-  customerInvoices: (customerId, type = 'drafts') => `/customers/${customerId}/invoices/${type}`
+  customerInvoices: (customerId, type = 'drafts') => `/customers/${customerId}/invoices/${type}`,
+  suppliersByGroup: (groupId) => `/supplier-groups/${groupId}/suppliers`,
+  productsByGroup: (groupId) => `/product-groups/${groupId}/products`
+  
 };
