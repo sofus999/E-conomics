@@ -2,29 +2,13 @@ const app = require('./app');
 const config = require('./config');
 const db = require('./db');
 const logger = require('./modules/core/logger');
-const { up: migrateInvoices } = require('./db/migrations/001-invoices');
-const { up: migrateAgreementNumber } = require('./db/migrations/002-agreement-number');
-const { up: migrateAgreementConfigs } = require('./db/migrations/003-agreement-configs');
-const { up: migratePaymentTerms } = require('./db/migrations/004-payment-terms');
-const { up: migrateProductGroups } = require('./db/migrations/005-product-groups');
-const { up: migrateProducts } = require('./db/migrations/006-products');
-const { up: migrateSupplierGroups } = require('./db/migrations/007-supplier-groups');
-const { up: migrateSuppliers } = require('./db/migrations/008-suppliers');
-const { up: migrateVatAccounts } = require('./db/migrations/009-vat-accounts');
+const runMigrations = require('./db/run-migrations');
 
 // Start the server
 async function startServer() {
   try {
-    // Run migrations
-    await migrateInvoices();
-    await migrateAgreementNumber();
-    await migrateAgreementConfigs();
-    await migratePaymentTerms();
-    await migrateProductGroups();
-    await migrateProducts();
-    await migrateSupplierGroups();
-    await migrateSuppliers();
-    await migrateVatAccounts();
+    // Run all migrations dynamically
+    await runMigrations();
     logger.info('Database migrations completed');
     
     // Start the server

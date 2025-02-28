@@ -9,6 +9,12 @@ const vatAccountService = require('../vat-accounts/vat-account.service');
 const invoiceService = require('../invoices/invoice.service');
 const supplierGroupService = require('../supplier-groups/supplier-group.service');
 const supplierService = require('../suppliers/supplier.service');
+const accountingYearService = require('../accounting-years/accounting-year.service');
+const accountService = require('../accounts/account.service');
+const customerService = require('../customers/customer.service');
+const departmentService = require('../departments/department.service');
+const departmentalDistributionService = require('../departmental-distributions/departmental-distribution.service');
+const journalService = require('../journals/journal.service');
 
 class SyncController {
   async syncAll(req, res, next) {
@@ -18,68 +24,51 @@ class SyncController {
     try {
       logger.info('Starting complete data synchronization');
       
-      // Sync in logical order (references before dependents)
-      logger.info('1/8: Syncing payment terms...');
-      results.paymentTerms = await paymentTermsService.syncAllPaymentTerms();
+      // Define services to sync in logical order (references before dependents)
+      const syncServices = [
+        { name: 'paymentTerms', service: paymentTermsService, method: 'syncAllPaymentTerms', label: 'payment terms' },
+        { name: 'productGroups', service: productGroupService, method: 'syncAllProductGroups', label: 'product groups' },
+        { name: 'products', service: productService, method: 'syncAllProducts', label: 'products' },
+        { name: 'vatAccounts', service: vatAccountService, method: 'syncAllVatAccounts', label: 'VAT accounts' },
+        { name: 'supplierGroups', service: supplierGroupService, method: 'syncAllSupplierGroups', label: 'supplier groups' },
+        { name: 'suppliers', service: supplierService, method: 'syncAllSuppliers', label: 'suppliers' },
+        { name: 'invoices', service: invoiceService, method: 'syncAllInvoices', label: 'invoices' },
+        { name: 'accountingYears', service: accountingYearService, method: 'syncAllAccountingYears', label: 'accounting years' },
+        { name: 'accounts', service: accountService, method: 'syncAllAccounts', label: 'accounts' },
+        { name: 'customers', service: customerService, method: 'syncAllCustomers', label: 'customers' },
+        { name: 'departments', service: departmentService, method: 'syncAllDepartments', label: 'departments' },
+        { name: 'departmentalDistributions', service: departmentalDistributionService, method: 'syncAllDistributions', label: 'departmental distributions' },
+        { name: 'journals', service: journalService, method: 'syncAllJournals', label: 'journals' }
+      ];
       
-      logger.info('2/8: Syncing product groups...');
-      results.productGroups = await productGroupService.syncAllProductGroups();
-      
-      logger.info('3/8: Syncing products...');
-      results.products = await productService.syncAllProducts();
-      
-      logger.info('4/8: Syncing VAT accounts...');
-      results.vatAccounts = await vatAccountService.syncAllVatAccounts();
-
-      logger.info('5/8: Syncing supplier groups...');
-      results.supplierGroups = await supplierGroupService.syncAllSupplierGroups();
-      
-      logger.info('6/8: Syncing suppliers...');
-      results.suppliers = await supplierService.syncAllSuppliers();
-      
-      logger.info('7/8: Syncing invoices...');
-      results.invoices = await invoiceService.syncAllInvoices();
+      // Sync each service in order
+      const totalServices = syncServices.length;
+      for (let i = 0; i < totalServices; i++) {
+        const { name, service, method, label } = syncServices[i];
+        logger.info(`${i+1}/${totalServices}: Syncing ${label}...`);
+        results[name] = await service[method]();
+      }
       
       const endTime = new Date();
       const duration = endTime - startTime;
       
       logger.info(`Complete sync finished in ${duration}ms`);
       
+      // Build results object dynamically
+      const resultsSummary = {};
+      syncServices.forEach(({ name }) => {
+        resultsSummary[name] = {
+          count: results[name]?.totalCount || 0,
+          status: results[name]?.status || 'unknown'
+        };
+      });
+      
       // Return summary of all operations
       res.json({
         status: 'success',
         duration,
         timestamp: new Date(),
-        results: {
-          paymentTerms: {
-            count: results.paymentTerms?.totalCount || 0,
-            status: results.paymentTerms?.status || 'unknown'
-          },
-          productGroups: {
-            count: results.productGroups?.totalCount || 0,
-            status: results.productGroups?.status || 'unknown'
-          },
-          products: {
-            count: results.products?.totalCount || 0,
-            status: results.products?.status || 'unknown'
-          },
-          supplierGroups: {
-            count: results.supplierGroups?.totalCount || 0,
-            status: results.supplierGroups?.status || 'unknown'
-          },
-          suppliers: {
-            count: results.suppliers?.totalCount || 0,
-            status: results.suppliers?.status || 'unknown'
-          },
-          vatAccounts: {
-            count: results.vatAccounts?.totalCount || 0,
-            status: results.vatAccounts?.status || 'unknown'
-          },
-          invoices: {
-            count: results.invoices?.totalCount || 0,
-            status: results.invoices?.status || 'unknown'
-          }
-        }
+        results: resultsSummary
       });
     } catch (error) {
       logger.error('Error in complete sync:', error.message);

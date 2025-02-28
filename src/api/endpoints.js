@@ -18,6 +18,12 @@ module.exports = {
   SUPPLIER_GROUPS: '/supplier-groups',
   SUPPLIERS: '/suppliers',
   VAT_ACCOUNTS: '/vat-accounts',
+  ACCOUNTING_YEARS: '/accounting-years',
+  ACCOUNTS: '/accounts',
+  CUSTOMERS: '/customers',
+  DEPARTMENTS: '/departments',
+  DEPARTMENTAL_DISTRIBUTIONS: '/departmental-distributions',
+  JOURNALS: '/journals',
 
   // Customer endpoints
   CUSTOMERS: '/customers',
