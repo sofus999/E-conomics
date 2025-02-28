@@ -44,14 +44,28 @@ class SupplierGroupModel {
       };
 
       await db.query(`
-        INSERT INTO supplier_groups SET ?
+        INSERT INTO supplier_groups (
+          supplier_group_number,
+          agreement_number,
+          name,
+          account_number,
+          suppliers_count,
+          self_url
+        ) VALUES (?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
-        name = VALUES(name),
-        account_number = VALUES(account_number),
-        suppliers_count = VALUES(suppliers_count),
-        self_url = VALUES(self_url),
-        updated_at = CURRENT_TIMESTAMP
-      `, safeData);
+          name = VALUES(name),
+          account_number = VALUES(account_number),
+          suppliers_count = VALUES(suppliers_count),
+          self_url = VALUES(self_url),
+          updated_at = CURRENT_TIMESTAMP
+      `, [
+        safeData.supplier_group_number,
+        safeData.agreement_number,
+        safeData.name,
+        safeData.account_number,
+        safeData.suppliers_count,
+        safeData.self_url
+      ]);
 
       return safeData;
     } catch (error) {
