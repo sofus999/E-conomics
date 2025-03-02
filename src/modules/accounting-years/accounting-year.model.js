@@ -20,7 +20,7 @@ class AccountingYearModel {
   static async getByAgreement(agreementNumber) {
     try {
       return await db.query(
-        'SELECT * FROM accounting_years WHERE agreement_number = ? ORDER BY from_date DESC',
+        'SELECT * FROM accounting_years WHERE agreement_number = ? ORDER BY start_date DESC',
         [agreementNumber]
       );
     } catch (error) {

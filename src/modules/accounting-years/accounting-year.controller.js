@@ -1,4 +1,3 @@
-// src/modules/accounting-years/accounting-year.controller.js
 const accountingYearService = require('./accounting-year.service');
 const logger = require('../core/logger');
 
@@ -43,7 +42,114 @@ class AccountingYearController {
     }
   }
   
-  // Additional methods for periods, entries, and totals
+  async getAccountingPeriods(req, res, next) {
+    try {
+      const { agreement_number, year } = req.params;
+      const periods = await accountingYearService.getAccountingPeriodsByYear(year, parseInt(agreement_number));
+      res.json(periods);
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  async getAccountingPeriodByNumber(req, res, next) {
+    try {
+      const { agreement_number, year, period_number } = req.params;
+      const period = await accountingYearService.getAccountingPeriodByNumber(
+        parseInt(period_number), 
+        year, 
+        parseInt(agreement_number)
+      );
+      res.json(period);
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  async getAccountingEntriesByPeriod(req, res, next) {
+    try {
+      const { agreement_number, year, period_number } = req.params;
+      
+      // Parse pagination parameters
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 100;
+      
+      const entries = await accountingYearService.getAccountingEntriesByPeriod(
+        parseInt(period_number), 
+        year, 
+        parseInt(agreement_number),
+        { page, limit }
+      );
+      
+      res.json(entries);
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  async getAccountingTotalsByPeriod(req, res, next) {
+    try {
+      const { agreement_number, year, period_number } = req.params;
+      const totals = await accountingYearService.getAccountingTotalsByPeriod(
+        parseInt(period_number), 
+        year, 
+        parseInt(agreement_number)
+      );
+      res.json(totals);
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  async syncAccountingPeriodEntries(req, res, next) {
+    try {
+      const { agreement_number, year, period_number } = req.params;
+      const agreement = await require('../agreements/agreement.model').getById(req.params.id);
+      
+      const result = await accountingYearService.syncAccountingEntriesForPeriod(
+        agreement,
+        year,
+        parseInt(period_number)
+      );
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  async syncAccountingPeriodTotals(req, res, next) {
+    try {
+      const { agreement_number, year, period_number } = req.params;
+      const agreement = await require('../agreements/agreement.model').getById(req.params.id);
+      
+      const result = await accountingYearService.syncAccountingTotalsForPeriod(
+        agreement,
+        year,
+        parseInt(period_number)
+      );
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  async syncAccountingYearTotals(req, res, next) {
+    try {
+      const { agreement_number, year } = req.params;
+      const agreement = await require('../agreements/agreement.model').getById(req.params.id);
+      
+      const result = await accountingYearService.syncAccountingTotalsForYear(
+        agreement,
+        year
+      );
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AccountingYearController();
