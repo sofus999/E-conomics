@@ -3,7 +3,6 @@ const logger = require('../core/logger');
 const { ApiError } = require('../core/error.handler');
 
 class AccountingYearModel {
-  // Find by year and agreement number
   static async findByYearAndAgreement(year, agreementNumber) {
     try {
       const years = await db.query(
@@ -18,7 +17,6 @@ class AccountingYearModel {
     }
   }
 
-  // Get all accounting years for an agreement
   static async getByAgreement(agreementNumber) {
     try {
       return await db.query(
@@ -31,7 +29,6 @@ class AccountingYearModel {
     }
   }
 
-  // Create or update accounting year
   static async upsert(yearData) {
     try {
       const existing = await this.findByYearAndAgreement(
@@ -49,9 +46,9 @@ class AccountingYearModel {
             updated_at = CURRENT_TIMESTAMP
           WHERE year = ? AND agreement_number = ?`,
           [
-            yearData.from_date,  
-            yearData.to_date,    
-            yearData.closed,
+            yearData.start_date,
+            yearData.end_date,
+            yearData.closed || false,
             yearData.self_url,
             yearData.year,
             yearData.agreement_number
@@ -72,9 +69,9 @@ class AccountingYearModel {
           [
             yearData.year,
             yearData.agreement_number,
-            yearData.from_date,  
-            yearData.to_date,    
-            yearData.closed,
+            yearData.start_date,
+            yearData.end_date,
+            yearData.closed || false,
             yearData.self_url
           ]
         );
@@ -87,7 +84,6 @@ class AccountingYearModel {
     }
   }
 
-  // Record sync log
   static async recordSyncLog(agreementNumber, recordCount = 0, errorMessage = null, startTime = null) {
     try {
       const started = startTime || new Date();

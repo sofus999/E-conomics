@@ -1,3 +1,4 @@
+// src/modules/accounting-years/accounting-year.controller.js
 const accountingYearService = require('./accounting-year.service');
 const logger = require('../core/logger');
 
@@ -41,6 +42,8 @@ class AccountingYearController {
       next(error);
     }
   }
+  
+  // Additional methods for periods, entries, and totals
 }
 
 module.exports = new AccountingYearController();
