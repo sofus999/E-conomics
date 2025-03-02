@@ -42,15 +42,15 @@ class AccountingYearModel {
       if (existing) {
         await db.query(
           `UPDATE accounting_years SET
-            from_date = ?,
-            to_date = ?,
+            start_date = ?,
+            end_date = ?,
             closed = ?,
             self_url = ?,
             updated_at = CURRENT_TIMESTAMP
           WHERE year = ? AND agreement_number = ?`,
           [
-            yearData.from_date,
-            yearData.to_date,
+            yearData.from_date,  
+            yearData.to_date,    
             yearData.closed,
             yearData.self_url,
             yearData.year,
@@ -64,16 +64,16 @@ class AccountingYearModel {
           `INSERT INTO accounting_years (
             year,
             agreement_number,
-            from_date,
-            to_date,
+            start_date,
+            end_date,
             closed,
             self_url
           ) VALUES (?, ?, ?, ?, ?, ?)`,
           [
             yearData.year,
             yearData.agreement_number,
-            yearData.from_date,
-            yearData.to_date,
+            yearData.from_date,  
+            yearData.to_date,    
             yearData.closed,
             yearData.self_url
           ]

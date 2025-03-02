@@ -14,21 +14,21 @@ class JournalService {
     let minVoucherNumber = null;
     let maxVoucherNumber = null;
     let entryTypeRestrictedTo = null;
-    let settings = {};
-
+    let settings = {};  // Initialize as empty object instead of undefined
+  
     if (journal.settings) {
       if (journal.settings.voucherNumbers) {
-        minVoucherNumber = journal.settings.voucherNumbers.minimumVoucherNumber;
-        maxVoucherNumber = journal.settings.voucherNumbers.maximumVoucherNumber;
+        minVoucherNumber = journal.settings.voucherNumbers.minimumVoucherNumber || null;
+        maxVoucherNumber = journal.settings.voucherNumbers.maximumVoucherNumber || null;
       }
       
       if (journal.settings.entryTypeRestrictedTo) {
         entryTypeRestrictedTo = journal.settings.entryTypeRestrictedTo;
       }
       
-      settings = journal.settings;
+      settings = journal.settings;  // Store the entire settings object
     }
-
+  
     return {
       journal_number: journal.journalNumber,
       agreement_number: agreementNumber,
@@ -36,7 +36,7 @@ class JournalService {
       min_voucher_number: minVoucherNumber,
       max_voucher_number: maxVoucherNumber,
       entry_type_restricted_to: entryTypeRestrictedTo,
-      settings: settings,
+      settings: settings || {},  // Ensure it's never undefined
       self_url: journal.self
     };
   }

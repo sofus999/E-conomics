@@ -36,6 +36,9 @@ class JournalModel {
         journalData.agreement_number
       );
       
+      // Ensure settings is never undefined
+      const settings = journalData.settings || {};
+      
       if (existing) {
         await db.query(
           `UPDATE journals SET
@@ -52,7 +55,7 @@ class JournalModel {
             journalData.min_voucher_number,
             journalData.max_voucher_number,
             journalData.entry_type_restricted_to,
-            JSON.stringify(journalData.settings || {}),
+            JSON.stringify(settings),  // Ensure it's stringified properly
             journalData.self_url,
             journalData.journal_number,
             journalData.agreement_number
@@ -79,7 +82,7 @@ class JournalModel {
             journalData.min_voucher_number,
             journalData.max_voucher_number,
             journalData.entry_type_restricted_to,
-            JSON.stringify(journalData.settings || {}),
+            JSON.stringify(settings),  // Ensure it's stringified properly
             journalData.self_url
           ]
         );

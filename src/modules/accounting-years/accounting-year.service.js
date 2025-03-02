@@ -16,8 +16,8 @@ class AccountingYearService {
     return {
       year: year.year,
       agreement_number: agreementNumber,
-      from_date: year.fromDate,
-      to_date: year.toDate,
+      start_date: year.fromDate,  // Map fromDate to start_date
+      end_date: year.toDate,      // Map toDate to end_date
       closed: year.closed || false,
       self_url: year.self
     };
