@@ -29,15 +29,11 @@ class InvoiceService {
 
   // Transform API invoice data to our database model
   transformInvoiceData(invoice, type, agreementNumber) {
-    // Extract customer name from invoice data
-    const customerName = invoice.customer?.name || 
-                        invoice.recipient?.name || 
-                        'Unknown Customer';
-    
-    // Extract customer number from invoice data
+    // Extract customer details
+    const customerName = invoice.customer?.name || invoice.recipient?.name || 'Unknown Customer';
     const customerNumber = invoice.customer?.customerNumber || null;
     
-    // Base transformed data object
+    // Base transformed data
     const transformed = {
       customer_number: customerNumber,
       customer_name: customerName,
@@ -49,64 +45,54 @@ class InvoiceService {
       net_amount: invoice.netAmount,
       gross_amount: invoice.grossAmount,
       vat_amount: invoice.vatAmount
-      // Removed 'data' property
     };
     
-    // Set payment status based on type
-    let paymentStatus;
+    // Set invoice number based on type
     if (type === 'draft') {
-      paymentStatus = 'pending';
       transformed.draft_invoice_number = invoice.draftInvoiceNumber;
-    } else if (type === 'booked') {
-      paymentStatus = 'pending';
-    } else if (type === 'paid') {
-      paymentStatus = 'paid';
-    } else if (type === 'unpaid') {
-      paymentStatus = 'pending';
-    } else if (type === 'overdue') {
-      paymentStatus = 'overdue';
-    } else if (type === 'not-due') {
-      paymentStatus = 'pending';
+      transformed.payment_status = 'draft'; // Special status for drafts
+    } else {
+      transformed.invoice_number = invoice.bookedInvoiceNumber;
+      
+      // Determine payment status for non-draft invoices
+      if (type === 'paid' || (invoice.remainder === 0 && invoice.remainder !== undefined)) {
+        transformed.payment_status = 'paid';
+      } else if (type === 'overdue' || (invoice.remainder > 0 && new Date(invoice.dueDate) < new Date())) {
+        transformed.payment_status = 'overdue';
+      } else {
+        // This covers unpaid and not-due invoices
+        transformed.payment_status = 'pending';
+      }
     }
     
-    transformed.payment_status = paymentStatus;
-    
-    // Set invoice number
-    const invoiceNumber = invoice.bookedInvoiceNumber || invoice.draftInvoiceNumber;
-    if (invoiceNumber) {
-      transformed.invoice_number = invoiceNumber;
-    }
-    
-    // Extract any notes from the invoice
+    // Extract notes
     if (invoice.notes) {
-      transformed.notes = [
-        invoice.notes.heading,
-        invoice.notes.textLine1,
-        invoice.notes.textLine2
-      ].filter(Boolean).join(' - ');
+      transformed.notes = [invoice.notes.heading, invoice.notes.textLine1, invoice.notes.textLine2]
+        .filter(Boolean).join(' - ');
     }
     
-    // Extract reference if available
+    // Extract reference
     if (invoice.references && invoice.references.other) {
       transformed.reference_number = invoice.references.other;
     }
     
-    // Add remainder amount (for unpaid invoices)
-    if (invoice.remainder) {
-      transformed.remainder = invoice.remainder;
-    }
-
     return transformed;
   }
 
+    
   // Transform invoice lines
-  transformInvoiceLines(invoice, invoiceId) {
+  transformInvoiceLines(invoice, invoiceNumber, agreementNumber) {
     if (!invoice.lines || !Array.isArray(invoice.lines)) {
       return [];
     }
     
+    // Get customer number from the invoice
+    const customerNumber = invoice.customer?.customerNumber || null;
+    
     return invoice.lines.map((line) => ({
-      invoice_id: invoiceId,
+      invoice_id: invoiceNumber,
+      agreement_number: agreementNumber,
+      customer_number: customerNumber,
       line_number: line.lineNumber,
       product_number: line.product?.productNumber,
       description: line.description,
@@ -115,47 +101,30 @@ class InvoiceService {
       discount_percentage: line.discountPercentage,
       unit: line.unit?.name,
       total_net_amount: line.totalNetAmount
-      // Removed 'data' property
     }));
   }
-    
-  // Transform invoice lines
-  transformInvoiceLines(invoice, invoiceId, agreementNumber) {
-    if (!invoice.lines || !Array.isArray(invoice.lines)) {
-      return [];
-    }
-    
-    return invoice.lines.map((line) => ({
-      invoice_id: invoiceId,
-      line_number: line.lineNumber,
-      product_number: line.product?.productNumber,
-      description: line.description,
-      quantity: line.quantity,
-      unit_price: line.unitNetPrice,
-      discount_percentage: line.discountPercentage,
-      unit: line.unit?.name,
-      total_net_amount: line.totalNetAmount,
-      agreement_number: agreementNumber
-    }));
-  }
-
   // Get detailed invoice by number (including line items)
   async getDetailedInvoice(invoiceNumber, type, client) {
     try {
-      // All invoice details are accessible through the booked endpoint
-      // regardless of their payment status (paid, unpaid, etc.)
-      const endpoint = `${endpoints.INVOICES_BOOKED}/${invoiceNumber}`;
+      let endpoint;
+      
+      if (type === 'draft') {
+        // Use draft endpoint for draft invoices
+        endpoint = `${endpoints.INVOICES_DRAFTS}/${invoiceNumber}`;
+      } else {
+        // For all other types, use booked endpoint
+        endpoint = `${endpoints.INVOICES_BOOKED}/${invoiceNumber}`;
+      }
       
       const detailedInvoice = await client.get(endpoint);
-      logger.debug(`Fetched detailed invoice #${invoiceNumber} from booked endpoint`);
+      logger.debug(`Fetched detailed invoice #${invoiceNumber} from ${type} endpoint`);
       
       return detailedInvoice;
     } catch (error) {
-      logger.error(`Error getting detailed invoice #${invoiceNumber} from booked endpoint:`, error.message);
+      logger.error(`Error getting detailed invoice #${invoiceNumber} of type ${type}:`, error.message);
       return null;
     }
   }
-  
   // Sync invoices for a specific agreement
   async syncAgreementInvoices(agreement, types = ['draft', 'booked', 'paid', 'unpaid', 'overdue', 'not-due']) {
     const startTime = new Date();
@@ -175,7 +144,10 @@ class InvoiceService {
       
       let needsUpdate = false;
       let updateData = {};
-      
+
+      // Log the agreement number to confirm it's available
+      logger.debug(`Agreement number from API: ${agreementNumber}`);    
+
       // Check if agreement number needs update
       if (!agreement.agreement_number || agreement.agreement_number !== agreementNumber) {
         logger.warn(`Agreement number mismatch: stored=${agreement.agreement_number || 'null'}, API=${agreementNumber}`);
@@ -225,22 +197,26 @@ class InvoiceService {
           
           let recordCount = 0;
           
-          // Process each invoice in the API response
           for (const invoice of invoices) {
             // Transform API data to our model
             const invoiceData = this.transformInvoiceData(invoice, type, agreementNumber);
+
+            // Verify we have agreement number before the smartUpsert call
+            logger.debug(`Processing invoice ${invoiceData.invoice_number || invoiceData.draft_invoice_number}, agreement: ${agreementNumber}`);
+          
+            // Smart upsert the invoice with explicit agreement number parameter
+            const savedInvoice = await InvoiceModel.smartUpsert(invoiceData, agreementNumber);
             
-            // Smart upsert the invoice
-            const savedInvoice = await InvoiceModel.smartUpsert(invoiceData);
+            // Get the correct invoice number based on type
+            const invoiceNumber = type === 'draft' ? invoice.draftInvoiceNumber : (invoice.bookedInvoiceNumber || invoice.draftInvoiceNumber);
             
             // Get detailed invoice to access line items
-            const invoiceNumber = invoice.bookedInvoiceNumber || invoice.draftInvoiceNumber;
             const detailedInvoice = await this.getDetailedInvoice(invoiceNumber, type, client);
             
             // Process invoice lines if available
-            if (detailedInvoice && detailedInvoice.lines) {
-              const lines = this.transformInvoiceLines(detailedInvoice, savedInvoice.id, agreementNumber);
-              await InvoiceModel.saveInvoiceLines(savedInvoice.id, lines);
+            if (detailedInvoice && (detailedInvoice.lines || [])) {
+              const lines = this.transformInvoiceLines(detailedInvoice, invoiceNumber, agreementNumber);
+              await InvoiceModel.saveInvoiceLines(invoiceNumber, agreementNumber, invoiceData.customer_number, lines);
               logger.debug(`Saved ${lines.length} lines for invoice #${invoiceNumber}`);
             } else {
               logger.debug(`No line items available for invoice #${invoiceNumber}`);

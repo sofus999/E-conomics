@@ -8,11 +8,10 @@ async function up() {
     // Invoices table - common fields for both draft and booked invoices
     await db.query(`
       CREATE TABLE IF NOT EXISTS invoices (
-        id VARCHAR(50) PRIMARY KEY,
         invoice_number INT,
         draft_invoice_number INT,
-        customer_number INT,
-        agreement_number INT,
+        customer_number INT NOT NULL,
+        agreement_number INT NOT NULL,
         currency VARCHAR(3),
         exchange_rate DECIMAL(10,6),
         date DATE,
@@ -20,27 +19,27 @@ async function up() {
         net_amount DECIMAL(15,2),
         gross_amount DECIMAL(15,2),
         vat_amount DECIMAL(15,2),
-        invoice_type ENUM('draft', 'booked', 'paid', 'unpaid'),
-        payment_status ENUM('pending', 'paid', 'overdue', 'partial'),
+        payment_status ENUM('pending', 'paid', 'overdue', 'partial', 'draft'),
         customer_name VARCHAR(255),
         reference_number VARCHAR(50),
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (invoice_number, customer_number, agreement_number),
         INDEX idx_customer_number (customer_number),
         INDEX idx_agreement_number (agreement_number),
         INDEX idx_date (date),
-        INDEX idx_invoice_type (invoice_type),
         INDEX idx_payment_status (payment_status)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     
-    // Invoice lines table
+    // Invoice lines table - updated structure
     await db.query(`
       CREATE TABLE IF NOT EXISTS invoice_lines (
-        id VARCHAR(50) PRIMARY KEY,
-        invoice_id VARCHAR(50),
-        line_number INT,
+        invoice_id INT NOT NULL,
+        agreement_number INT NOT NULL,
+        customer_number INT NOT NULL,
+        line_number INT NOT NULL,
         product_number VARCHAR(50),
         description TEXT,
         quantity DECIMAL(10,2),
@@ -49,8 +48,10 @@ async function up() {
         unit VARCHAR(50),
         total_net_amount DECIMAL(15,2),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
-        INDEX idx_invoice_id (invoice_id)
+        PRIMARY KEY (invoice_id, agreement_number, customer_number, line_number),
+        INDEX idx_invoice_id (invoice_id),
+        INDEX idx_agreement_number (agreement_number),
+        INDEX idx_customer_number (customer_number)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     

@@ -5,49 +5,112 @@ const { v4: uuidv4 } = require('uuid');
 
 class InvoiceModel {
   // Smart upsert - uses invoice_number AND agreement_number to determine if record exists
-  static async smartUpsert(invoiceData) {
-    try {
-      // Get invoice number or draft invoice number
-      const invoiceNumber = invoiceData.invoice_number || invoiceData.draft_invoice_number;
-      const agreementNumber = invoiceData.agreement_number;
-      
-      if (!invoiceNumber) {
-        throw new Error('Invoice number or draft invoice number is required for upsert');
-      }
-      
-      if (!agreementNumber) {
-        throw new Error('Agreement number is required for upsert');
-      }
-      
-      // Check if this specific invoice exists for this agreement
-      const existingInvoice = await this.findByInvoiceAndAgreementNumber(invoiceNumber, agreementNumber);
-      
-      if (existingInvoice) {
-        // Determine if new status takes precedence
-        const updateStatus = this.shouldUpdateStatus(existingInvoice.payment_status, invoiceData.payment_status);
-        
-        // If we should update the status, use the new one, otherwise keep the existing one
-        const newStatus = updateStatus ? invoiceData.payment_status : existingInvoice.payment_status;
-        
-        // Create an updated data object that prioritizes new data
-        const updatedData = {
-          ...existingInvoice,
-          ...invoiceData,
-          payment_status: newStatus,
-          id: existingInvoice.id // Keep the original ID to update the correct record
-        };
-        
-        // Update the existing invoice
-        return await this.update(existingInvoice.id, updatedData);
-      } else {
-        // Create a new invoice
-        return await this.create(invoiceData);
-      }
-    } catch (error) {
-      logger.error(`Error upserting invoice:`, error.message);
-      throw error;
+static async smartUpsert(invoiceData, agreementNumber) {
+  try {
+    // Add agreement_number to the data
+    invoiceData.agreement_number = agreementNumber;
+    
+    // For draft invoices, use the draft number as the invoice_number for the primary key
+    if (invoiceData.payment_status === 'draft' || !invoiceData.invoice_number) {
+      invoiceData.invoice_number = invoiceData.draft_invoice_number;
     }
+    
+    // Safety check for required fields
+    if (!invoiceData.invoice_number) {
+      logger.error('Missing invoice_number in smartUpsert');
+      throw new Error('Missing invoice_number in invoice data');
+    }
+    
+    if (!invoiceData.customer_number) {
+      logger.error('Missing customer_number in smartUpsert');
+      throw new Error('Missing customer_number in invoice data');
+    }
+    
+    if (!agreementNumber) {
+      logger.error('Missing agreementNumber in smartUpsert');
+      throw new Error('Missing agreement_number parameter');
+    }
+    // Check if this specific invoice exists
+    const existing = await this.findByInvoiceAndAgreementNumber(
+      invoiceData.invoice_number, 
+      invoiceData.customer_number, 
+      agreementNumber
+    );
+    
+    if (existing) {
+      // Update existing record
+      await db.query(
+        `UPDATE invoices SET
+          draft_invoice_number = ?,
+          currency = ?,
+          exchange_rate = ?,
+          date = ?,
+          due_date = ?,
+          net_amount = ?,
+          gross_amount = ?,
+          vat_amount = ?,
+          payment_status = ?,
+          customer_name = ?,
+          reference_number = ?,
+          notes = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE invoice_number = ? AND customer_number = ? AND agreement_number = ?`,
+        [
+          invoiceData.draft_invoice_number || null,
+          invoiceData.currency,
+          invoiceData.exchange_rate || null,
+          invoiceData.date,
+          invoiceData.due_date || null,
+          invoiceData.net_amount || 0,
+          invoiceData.gross_amount || 0,
+          invoiceData.vat_amount || 0,
+          invoiceData.payment_status || 'pending',
+          invoiceData.customer_name,
+          invoiceData.reference_number || null,
+          invoiceData.notes || null,
+          invoiceData.invoice_number,
+          invoiceData.customer_number,
+          invoiceData.agreement_number
+        ]
+      );
+      
+      return { ...existing, ...invoiceData };
+    } else {
+      // Insert new record
+      await db.query(
+        `INSERT INTO invoices (
+          invoice_number, draft_invoice_number, customer_number, agreement_number,
+          currency, exchange_rate, date, due_date,
+          net_amount, gross_amount, vat_amount,
+          payment_status, customer_name,
+          reference_number, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          invoiceData.invoice_number, // This must have a value now
+          invoiceData.draft_invoice_number || null,
+          invoiceData.customer_number,
+          invoiceData.agreement_number,
+          invoiceData.currency,
+          invoiceData.exchange_rate || null,
+          invoiceData.date,
+          invoiceData.due_date || null,
+          invoiceData.net_amount || 0,
+          invoiceData.gross_amount || 0,
+          invoiceData.vat_amount || 0,
+          invoiceData.payment_status || 'pending',
+          invoiceData.customer_name,
+          invoiceData.reference_number || null,
+          invoiceData.notes || null
+        ]
+      );
+      
+      return invoiceData;
+    }
+  } catch (error) {
+    logger.error(`Error upserting invoice:`, error.message);
+    throw error;
   }
+}
   
   // Create a new invoice in the database
   static async create(invoiceData) {
@@ -140,17 +203,23 @@ class InvoiceModel {
     }
   }
 
-  // Find by invoice number and agreement number
-  static async findByInvoiceAndAgreementNumber(invoiceNumber, agreementNumber) {
+  // Find by invoice number, customer number, and agreement number
+  static async findByInvoiceAndAgreementNumber(invoiceNumber, customerNumber, agreementNumber) {
     try {
+      // Safety check for parameters
+      if (!invoiceNumber || !customerNumber || !agreementNumber) {
+        logger.error(`Missing parameters in findByInvoiceAndAgreementNumber: invoiceNumber=${invoiceNumber}, customerNumber=${customerNumber}, agreementNumber=${agreementNumber}`);
+        return null;
+      }
+      
       const invoices = await db.query(
-        'SELECT * FROM invoices WHERE invoice_number = ? AND agreement_number = ?',
-        [invoiceNumber, agreementNumber]
+        'SELECT * FROM invoices WHERE (invoice_number = ? OR draft_invoice_number = ?) AND customer_number = ? AND agreement_number = ?',
+        [invoiceNumber, invoiceNumber, customerNumber, agreementNumber]
       );
       
       return invoices.length > 0 ? invoices[0] : null;
     } catch (error) {
-      logger.error(`Error finding invoice by number ${invoiceNumber} and agreement ${agreementNumber}:`, error.message);
+      logger.error(`Error finding invoice by number ${invoiceNumber}, customer ${customerNumber}, and agreement ${agreementNumber}:`, error.message);
       throw error;
     }
   }
@@ -170,7 +239,7 @@ class InvoiceModel {
   }
   
   // Save invoice lines for an invoice
-  static async saveInvoiceLines(invoiceId, lines) {
+  static async saveInvoiceLines(invoiceNumber, agreementNumber, customerNumber, lines) {
     try {
       if (!lines || !Array.isArray(lines) || lines.length === 0) {
         return [];
@@ -180,23 +249,22 @@ class InvoiceModel {
       await db.transaction(async (connection) => {
         // Delete existing lines for this invoice
         await connection.query(
-          'DELETE FROM invoice_lines WHERE invoice_id = ?',
-          [invoiceId]
+          'DELETE FROM invoice_lines WHERE invoice_id = ? AND agreement_number = ? AND customer_number = ?',
+          [invoiceNumber, agreementNumber, customerNumber]
         );
         
         // Insert new lines
         for (const line of lines) {
-          const lineId = `${invoiceId}-line-${line.line_number}`;
-          
           await connection.query(
             `INSERT INTO invoice_lines (
-              id, invoice_id, line_number, product_number, 
-              description, quantity, unit_price, discount_percentage, 
-              unit, total_net_amount
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              invoice_id, agreement_number, customer_number, line_number,
+              product_number, description, quantity, unit_price, 
+              discount_percentage, unit, total_net_amount
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-              lineId,
-              invoiceId,
+              invoiceNumber,
+              agreementNumber,
+              customerNumber,
               line.line_number,
               line.product_number || null,
               line.description,
@@ -212,7 +280,7 @@ class InvoiceModel {
       
       return lines;
     } catch (error) {
-      logger.error(`Error saving invoice lines for invoice ${invoiceId}:`, error.message);
+      logger.error(`Error saving invoice lines for invoice ${invoiceNumber}:`, error.message);
       throw error;
     }
   }
