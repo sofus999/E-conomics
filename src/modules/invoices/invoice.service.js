@@ -1,21 +1,15 @@
-const apiClient = require('../../api/client');
-const ApiClient = require('../../api/client'); // Import the class
+const ApiClient = require('../../api/client');
 const endpoints = require('../../api/endpoints');
 const InvoiceModel = require('./invoice.model');
 const AgreementModel = require('../agreements/agreement.model');
 const logger = require('../core/logger');
-const { ApiError } = require('../core/error.handler');
-const db = require('../../db');
 const config = require('../../config');
+const db = require('../../db');
 
 class InvoiceService {
   constructor() {
     // Default agreement number from config
     this.defaultAgreementNumber = config.api.agreementNumber;
-  }
-  
-  async initializeAgreementNumber() {
-    return this.defaultAgreementNumber;
   }
   
   // Get all active agreements
@@ -54,11 +48,11 @@ class InvoiceService {
       due_date: invoice.dueDate,
       net_amount: invoice.netAmount,
       gross_amount: invoice.grossAmount,
-      vat_amount: invoice.vatAmount,
-      data: invoice // Store the full API response
+      vat_amount: invoice.vatAmount
+      // Removed 'data' property
     };
     
-    // Set payment status based on type (no invoice_type stored)
+    // Set payment status based on type
     let paymentStatus;
     if (type === 'draft') {
       paymentStatus = 'pending';
@@ -104,25 +98,62 @@ class InvoiceService {
 
     return transformed;
   }
-  
+
   // Transform invoice lines
   transformInvoiceLines(invoice, invoiceId) {
     if (!invoice.lines || !Array.isArray(invoice.lines)) {
       return [];
     }
     
-    return invoice.lines.map((line, index) => ({
+    return invoice.lines.map((line) => ({
       invoice_id: invoiceId,
-      line_number: index + 1,
+      line_number: line.lineNumber,
       product_number: line.product?.productNumber,
       description: line.description,
       quantity: line.quantity,
-      unit_price: line.unitPrice,
+      unit_price: line.unitNetPrice,
       discount_percentage: line.discountPercentage,
-      unit: line.unit,
-      total_net_amount: line.totalNetAmount,
-      data: line
+      unit: line.unit?.name,
+      total_net_amount: line.totalNetAmount
+      // Removed 'data' property
     }));
+  }
+    
+  // Transform invoice lines
+  transformInvoiceLines(invoice, invoiceId, agreementNumber) {
+    if (!invoice.lines || !Array.isArray(invoice.lines)) {
+      return [];
+    }
+    
+    return invoice.lines.map((line) => ({
+      invoice_id: invoiceId,
+      line_number: line.lineNumber,
+      product_number: line.product?.productNumber,
+      description: line.description,
+      quantity: line.quantity,
+      unit_price: line.unitNetPrice,
+      discount_percentage: line.discountPercentage,
+      unit: line.unit?.name,
+      total_net_amount: line.totalNetAmount,
+      agreement_number: agreementNumber
+    }));
+  }
+
+  // Get detailed invoice by number (including line items)
+  async getDetailedInvoice(invoiceNumber, type, client) {
+    try {
+      // All invoice details are accessible through the booked endpoint
+      // regardless of their payment status (paid, unpaid, etc.)
+      const endpoint = `${endpoints.INVOICES_BOOKED}/${invoiceNumber}`;
+      
+      const detailedInvoice = await client.get(endpoint);
+      logger.debug(`Fetched detailed invoice #${invoiceNumber} from booked endpoint`);
+      
+      return detailedInvoice;
+    } catch (error) {
+      logger.error(`Error getting detailed invoice #${invoiceNumber} from booked endpoint:`, error.message);
+      return null;
+    }
   }
   
   // Sync invoices for a specific agreement
@@ -194,7 +225,7 @@ class InvoiceService {
           
           let recordCount = 0;
           
-          // Process each invoice
+          // Process each invoice in the API response
           for (const invoice of invoices) {
             // Transform API data to our model
             const invoiceData = this.transformInvoiceData(invoice, type, agreementNumber);
@@ -202,10 +233,17 @@ class InvoiceService {
             // Smart upsert the invoice
             const savedInvoice = await InvoiceModel.smartUpsert(invoiceData);
             
+            // Get detailed invoice to access line items
+            const invoiceNumber = invoice.bookedInvoiceNumber || invoice.draftInvoiceNumber;
+            const detailedInvoice = await this.getDetailedInvoice(invoiceNumber, type, client);
+            
             // Process invoice lines if available
-            if (invoice.lines) {
-              const lines = this.transformInvoiceLines(invoice, savedInvoice.id);
+            if (detailedInvoice && detailedInvoice.lines) {
+              const lines = this.transformInvoiceLines(detailedInvoice, savedInvoice.id, agreementNumber);
               await InvoiceModel.saveInvoiceLines(savedInvoice.id, lines);
+              logger.debug(`Saved ${lines.length} lines for invoice #${invoiceNumber}`);
+            } else {
+              logger.debug(`No line items available for invoice #${invoiceNumber}`);
             }
             
             recordCount++;
@@ -365,442 +403,6 @@ class InvoiceService {
       return await this.syncAgreementInvoices(agreement);
     } catch (error) {
       logger.error(`Error syncing invoices for agreement ID ${agreementId}:`, error.message);
-      throw error;
-    }
-  }
-  
-  // The following methods maintain backward compatibility
-  
-  // Sync draft invoices only
-  async syncDraftInvoices() {
-    try {
-      logger.info('Starting sync of draft invoices across all agreements');
-      const startTime = new Date();
-      const agreementResults = [];
-      let totalCount = 0;
-      
-      // Get all active agreements
-      const agreements = await this.getActiveAgreements();
-      
-      if (agreements.length === 0) {
-        logger.warn('No active agreements found for sync');
-        return {
-          status: 'warning',
-          message: 'No active agreements found',
-          type: 'draft',
-          count: 0
-        };
-      }
-      
-      // Process each agreement
-      for (const agreement of agreements) {
-        try {
-          const result = await this.syncAgreementInvoices(agreement, ['draft']);
-          agreementResults.push(result);
-          totalCount += result.totalCount;
-        } catch (error) {
-          logger.error(`Error syncing draft invoices for agreement ${agreement.name}:`, error.message);
-        }
-      }
-      
-      logger.info(`Completed sync of draft invoices: ${totalCount} invoices processed`);
-      
-      return {
-        status: 'success',
-        type: 'draft',
-        count: totalCount,
-        results: agreementResults
-      };
-    } catch (error) {
-      logger.error('Error syncing draft invoices:', error.message);
-      throw error;
-    }
-  }
-  
-  // Sync booked invoices only
-  async syncBookedInvoices() {
-    try {
-      logger.info('Starting sync of booked invoices across all agreements');
-      const startTime = new Date();
-      const agreementResults = [];
-      let totalCount = 0;
-      
-      // Get all active agreements
-      const agreements = await this.getActiveAgreements();
-      
-      if (agreements.length === 0) {
-        logger.warn('No active agreements found for sync');
-        return {
-          status: 'warning',
-          message: 'No active agreements found',
-          type: 'booked',
-          count: 0
-        };
-      }
-      
-      // Process each agreement
-      for (const agreement of agreements) {
-        try {
-          const result = await this.syncAgreementInvoices(agreement, ['booked']);
-          agreementResults.push(result);
-          totalCount += result.totalCount;
-        } catch (error) {
-          logger.error(`Error syncing booked invoices for agreement ${agreement.name}:`, error.message);
-        }
-      }
-      
-      logger.info(`Completed sync of booked invoices: ${totalCount} invoices processed`);
-      
-      return {
-        status: 'success',
-        type: 'booked',
-        count: totalCount,
-        results: agreementResults
-      };
-    } catch (error) {
-      logger.error('Error syncing booked invoices:', error.message);
-      throw error;
-    }
-  }
-
-  // Sync paid invoices only
-  async syncPaidInvoices() {
-    try {
-      logger.info('Starting sync of paid invoices across all agreements');
-      const startTime = new Date();
-      const agreementResults = [];
-      let totalCount = 0;
-      
-      // Get all active agreements
-      const agreements = await this.getActiveAgreements();
-      
-      if (agreements.length === 0) {
-        logger.warn('No active agreements found for sync');
-        return {
-          status: 'warning',
-          message: 'No active agreements found',
-          type: 'paid',
-          count: 0
-        };
-      }
-      
-      // Process each agreement
-      for (const agreement of agreements) {
-        try {
-          const result = await this.syncAgreementInvoices(agreement, ['paid']);
-          agreementResults.push(result);
-          totalCount += result.totalCount;
-        } catch (error) {
-          logger.error(`Error syncing paid invoices for agreement ${agreement.name}:`, error.message);
-        }
-      }
-      
-      logger.info(`Completed sync of paid invoices: ${totalCount} invoices processed`);
-      
-      return {
-        status: 'success',
-        type: 'paid',
-        count: totalCount,
-        results: agreementResults
-      };
-    } catch (error) {
-      logger.error('Error syncing paid invoices:', error.message);
-      throw error;
-    }
-  }
-
-  // Sync unpaid invoices only
-  async syncUnpaidInvoices() {
-    try {
-      logger.info('Starting sync of unpaid invoices across all agreements');
-      const startTime = new Date();
-      const agreementResults = [];
-      let totalCount = 0;
-      
-      // Get all active agreements
-      const agreements = await this.getActiveAgreements();
-      
-      if (agreements.length === 0) {
-        logger.warn('No active agreements found for sync');
-        return {
-          status: 'warning',
-          message: 'No active agreements found',
-          type: 'unpaid',
-          count: 0
-        };
-      }
-      
-      // Process each agreement
-      for (const agreement of agreements) {
-        try {
-          const result = await this.syncAgreementInvoices(agreement, ['unpaid']);
-          agreementResults.push(result);
-          totalCount += result.totalCount;
-        } catch (error) {
-          logger.error(`Error syncing unpaid invoices for agreement ${agreement.name}:`, error.message);
-        }
-      }
-      
-      logger.info(`Completed sync of unpaid invoices: ${totalCount} invoices processed`);
-      
-      return {
-        status: 'success',
-        type: 'unpaid',
-        count: totalCount,
-        results: agreementResults
-      };
-    } catch (error) {
-      logger.error('Error syncing unpaid invoices:', error.message);
-      throw error;
-    }
-  }
-
-  // Sync overdue invoices only
-  async syncOverdueInvoices() {
-    try {
-      logger.info('Starting sync of overdue invoices across all agreements');
-      const startTime = new Date();
-      const agreementResults = [];
-      let totalCount = 0;
-      
-      // Get all active agreements
-      const agreements = await this.getActiveAgreements();
-      
-      if (agreements.length === 0) {
-        logger.warn('No active agreements found for sync');
-        return {
-          status: 'warning',
-          message: 'No active agreements found',
-          type: 'overdue',
-          count: 0
-        };
-      }
-      
-      // Process each agreement
-      for (const agreement of agreements) {
-        try {
-          const result = await this.syncAgreementInvoices(agreement, ['overdue']);
-          agreementResults.push(result);
-          totalCount += result.totalCount;
-        } catch (error) {
-          logger.error(`Error syncing overdue invoices for agreement ${agreement.name}:`, error.message);
-        }
-      }
-      
-      logger.info(`Completed sync of overdue invoices: ${totalCount} invoices processed`);
-      
-      return {
-        status: 'success',
-        type: 'overdue',
-        count: totalCount,
-        results: agreementResults
-      };
-    } catch (error) {
-      logger.error('Error syncing overdue invoices:', error.message);
-      throw error;
-    }
-  }
-
-  // Sync not-due invoices only
-  async syncNotDueInvoices() {
-    try {
-      logger.info('Starting sync of not-due invoices across all agreements');
-      const startTime = new Date();
-      const agreementResults = [];
-      let totalCount = 0;
-      
-      // Get all active agreements
-      const agreements = await this.getActiveAgreements();
-      
-      if (agreements.length === 0) {
-        logger.warn('No active agreements found for sync');
-        return {
-          status: 'warning',
-          message: 'No active agreements found',
-          type: 'not-due',
-          count: 0
-        };
-      }
-      
-      // Process each agreement
-      for (const agreement of agreements) {
-        try {
-          const result = await this.syncAgreementInvoices(agreement, ['not-due']);
-          agreementResults.push(result);
-          totalCount += result.totalCount;
-        } catch (error) {
-          logger.error(`Error syncing not-due invoices for agreement ${agreement.name}:`, error.message);
-        }
-      }
-      
-      logger.info(`Completed sync of not-due invoices: ${totalCount} invoices processed`);
-      
-      return {
-        status: 'success',
-        type: 'not-due',
-        count: totalCount,
-        results: agreementResults
-      };
-    } catch (error) {
-      logger.error('Error syncing not-due invoices:', error.message);
-      throw error;
-    }
-  }
-  
-  // Update invoice status
-  async updateInvoiceStatus(id, newStatus) {
-    try {
-      // Find the invoice
-      const invoice = await InvoiceModel.findById(id);
-      
-      if (!invoice) {
-        throw ApiError.notFound(`Invoice with ID ${id} not found`);
-      }
-      
-      // Update status
-      await db.query(
-        'UPDATE invoices SET payment_status = ?, updated_at = NOW() WHERE id = ?',
-        [newStatus, id]
-      );
-      
-      logger.info(`Updated invoice ${id} status to ${newStatus}`);
-      
-      return {
-        id,
-        status: newStatus
-      };
-    } catch (error) {
-      logger.error(`Error updating invoice ${id} status:`, error.message);
-      throw error;
-    }
-  }
-  
-  // Get invoices with filtering, sorting, and pagination
-  async getInvoices(filters = {}, sort = {}, pagination = {}) {
-    try {
-      return await InvoiceModel.find(filters, sort, pagination);
-    } catch (error) {
-      logger.error('Error getting invoices:', error.message);
-      throw error;
-    }
-  }
-  
-  // Get invoice by ID with its lines
-  async getInvoiceWithLines(id) {
-    try {
-      const invoice = await InvoiceModel.findById(id);
-      
-      if (!invoice) {
-        throw ApiError.notFound(`Invoice with ID ${id} not found`);
-      }
-      
-      const lines = await InvoiceModel.getInvoiceLines(id);
-      
-      return {
-        ...invoice,
-        lines
-      };
-    } catch (error) {
-      logger.error(`Error getting invoice ${id} with lines:`, error.message);
-      throw error;
-    }
-  }
-  
-  // Get sync logs
-  async getSyncLogs(limit = 10) {
-    try {
-      const logs = await db.query(
-        'SELECT * FROM sync_logs ORDER BY started_at DESC LIMIT ?',
-        [limit]
-      );
-      
-      return logs;
-    } catch (error) {
-      logger.error('Error getting sync logs:', error.message);
-      throw error;
-    }
-  }
-
-  // Get invoice statistics for all agreements
-  async getInvoiceStatistics() {
-    try {
-      const stats = await db.query(`
-        SELECT 
-          agreement_number,
-          payment_status,
-          COUNT(*) as count,
-          SUM(net_amount) as total_net_amount,
-          SUM(gross_amount) as total_gross_amount,
-          SUM(vat_amount) as total_vat_amount,
-          MIN(date) as oldest_date,
-          MAX(date) as newest_date
-        FROM 
-          invoices
-        GROUP BY 
-          agreement_number, payment_status
-        ORDER BY 
-          agreement_number, payment_status
-      `);
-
-      return stats;
-    } catch (error) {
-      logger.error('Error getting invoice statistics:', error.message);
-      throw error;
-    }
-  }
-  
-  // Get statistics for a specific agreement
-  async getAgreementStatistics(agreementNumber) {
-    try {
-      const stats = await db.query(`
-        SELECT 
-          payment_status,
-          COUNT(*) as count,
-          SUM(net_amount) as total_net_amount,
-          SUM(gross_amount) as total_gross_amount,
-          SUM(vat_amount) as total_vat_amount,
-          MIN(date) as oldest_date,
-          MAX(date) as newest_date
-        FROM 
-          invoices
-        WHERE
-          agreement_number = ?
-        GROUP BY 
-          payment_status
-        ORDER BY 
-          payment_status
-      `, [agreementNumber]);
-
-      return stats;
-    } catch (error) {
-      logger.error(`Error getting statistics for agreement ${agreementNumber}:`, error.message);
-      throw error;
-    }
-  }
-  
-  // Get agreement info - delegated to API client
-  async getAgreementInfo(agreementToken) {
-    try {
-      const client = agreementToken 
-        ? this.getClientForAgreement(agreementToken)
-        : apiClient;
-      
-      return await client.getAgreementInfo();
-    } catch (error) {
-      logger.error('Error fetching agreement info:', error.message);
-      throw error;
-    }
-  }
-  
-  // Get invoices for a specific agreement
-  async getInvoicesByAgreement(agreementNumber, filters = {}, sort = {}, pagination = {}) {
-    try {
-      // Add agreement filter
-      filters.agreement_number = agreementNumber;
-      
-      return await InvoiceModel.find(filters, sort, pagination);
-    } catch (error) {
-      logger.error(`Error getting invoices for agreement ${agreementNumber}:`, error.message);
       throw error;
     }
   }

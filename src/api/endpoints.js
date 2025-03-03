@@ -25,9 +25,6 @@ module.exports = {
   DEPARTMENTAL_DISTRIBUTIONS: '/departmental-distributions',
   JOURNALS: '/journals',
 
-  // Customer endpoints
-  CUSTOMERS: '/customers',
-  
   // Helper functions
   customerInvoices: (customerId, type = 'drafts') => `/customers/${customerId}/invoices/${type}`,
   suppliersByGroup: (groupId) => `/supplier-groups/${groupId}/suppliers`,
@@ -40,5 +37,4 @@ module.exports = {
   accountingYearTotals: (year) => `/accounting-years/${year}/totals`,
   accountingPeriodEntries: (year, periodNumber) => `/accounting-years/${year}/periods/${periodNumber}/entries`,
   accountingPeriodTotals: (year, periodNumber) => `/accounting-years/${year}/periods/${periodNumber}/totals`
-  
 };

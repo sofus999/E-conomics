@@ -12,6 +12,7 @@ async function up() {
         invoice_number INT,
         draft_invoice_number INT,
         customer_number INT,
+        agreement_number INT,
         currency VARCHAR(3),
         exchange_rate DECIMAL(10,6),
         date DATE,
@@ -24,10 +25,10 @@ async function up() {
         customer_name VARCHAR(255),
         reference_number VARCHAR(50),
         notes TEXT,
-        data JSON,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_customer_number (customer_number),
+        INDEX idx_agreement_number (agreement_number),
         INDEX idx_date (date),
         INDEX idx_invoice_type (invoice_type),
         INDEX idx_payment_status (payment_status)
@@ -47,7 +48,6 @@ async function up() {
         discount_percentage DECIMAL(5,2),
         unit VARCHAR(50),
         total_net_amount DECIMAL(15,2),
-        data JSON,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
         INDEX idx_invoice_id (invoice_id)
