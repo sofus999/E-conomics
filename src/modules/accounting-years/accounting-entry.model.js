@@ -2,6 +2,9 @@ const db = require('../../db');
 const logger = require('../core/logger');
 
 class AccountingEntryModel {
+  /**
+   * Find accounting entry by entry number, year, and agreement number
+   */
   static async findByEntryNumberYearAndAgreement(entryNumber, year, agreementNumber) {
     try {
       const entries = await db.query(
@@ -16,84 +19,9 @@ class AccountingEntryModel {
     }
   }
 
-  static async getByPeriodYearAndAgreement(periodNumber, year, agreementNumber, pagination = { page: 1, limit: 100 }) {
-    try {
-      const page = pagination.page || 1;
-      const limit = pagination.limit || 100;
-      const offset = (page - 1) * limit;
-      
-      // Get total count
-      const countResult = await db.query(
-        `SELECT COUNT(*) as total FROM accounting_entries 
-         WHERE period_number = ? AND year = ? AND agreement_number = ?`,
-        [periodNumber, year, agreementNumber]
-      );
-      
-      const total = countResult[0].total || 0;
-      
-      // Get paginated entries
-      const entries = await db.query(
-        `SELECT * FROM accounting_entries 
-         WHERE period_number = ? AND year = ? AND agreement_number = ? 
-         ORDER BY entry_date, entry_number 
-         LIMIT ? OFFSET ?`,
-        [periodNumber, year, agreementNumber, limit, offset]
-      );
-      
-      return {
-        data: entries,
-        pagination: {
-          total,
-          page,
-          limit,
-          pages: Math.ceil(total / limit)
-        }
-      };
-    } catch (error) {
-      logger.error(`Error getting accounting entries for period ${periodNumber}, year ${year} and agreement ${agreementNumber}:`, error.message);
-      throw error;
-    }
-  }
-  
-  static async getByAccountNumberYearAndAgreement(accountNumber, year, agreementNumber, pagination = { page: 1, limit: 100 }) {
-    try {
-      const page = pagination.page || 1;
-      const limit = pagination.limit || 100;
-      const offset = (page - 1) * limit;
-      
-      // Get total count
-      const countResult = await db.query(
-        `SELECT COUNT(*) as total FROM accounting_entries 
-         WHERE account_number = ? AND year = ? AND agreement_number = ?`,
-        [accountNumber, year, agreementNumber]
-      );
-      
-      const total = countResult[0].total || 0;
-      
-      // Get paginated entries
-      const entries = await db.query(
-        `SELECT * FROM accounting_entries 
-         WHERE account_number = ? AND year = ? AND agreement_number = ? 
-         ORDER BY entry_date, entry_number 
-         LIMIT ? OFFSET ?`,
-        [accountNumber, year, agreementNumber, limit, offset]
-      );
-      
-      return {
-        data: entries,
-        pagination: {
-          total,
-          page,
-          limit,
-          pages: Math.ceil(total / limit)
-        }
-      };
-    } catch (error) {
-      logger.error(`Error getting accounting entries for account ${accountNumber}, year ${year} and agreement ${agreementNumber}:`, error.message);
-      throw error;
-    }
-  }
-
+  /**
+   * Batch insert or update multiple accounting entries
+   */
   static async batchUpsert(entries) {
     if (!entries || entries.length === 0) {
       return { inserted: 0, updated: 0 };
@@ -194,6 +122,9 @@ class AccountingEntryModel {
     }
   }
 
+  /**
+   * Record sync log for accounting entries
+   */
   static async recordSyncLog(agreementNumber, year, periodNumber, recordCount = 0, errorMessage = null, startTime = null) {
     try {
       const started = startTime || new Date();

@@ -2,6 +2,9 @@ const db = require('../../db');
 const logger = require('../core/logger');
 
 class AccountingPeriodModel {
+  /**
+   * Find accounting period by period number, year, and agreement number
+   */
   static async findByNumberYearAndAgreement(periodNumber, year, agreementNumber) {
     try {
       const periods = await db.query(
@@ -16,18 +19,9 @@ class AccountingPeriodModel {
     }
   }
 
-  static async getByYearAndAgreement(year, agreementNumber) {
-    try {
-      return await db.query(
-        'SELECT * FROM accounting_periods WHERE year = ? AND agreement_number = ? ORDER BY period_number',
-        [year, agreementNumber]
-      );
-    } catch (error) {
-      logger.error(`Error getting accounting periods for year ${year} and agreement ${agreementNumber}:`, error.message);
-      throw error;
-    }
-  }
-
+  /**
+   * Create or update an accounting period
+   */
   static async upsert(periodData) {
     try {
       const existing = await this.findByNumberYearAndAgreement(
@@ -87,6 +81,9 @@ class AccountingPeriodModel {
     }
   }
 
+  /**
+   * Record sync log for accounting periods
+   */
   static async recordSyncLog(agreementNumber, year, recordCount = 0, errorMessage = null, startTime = null) {
     try {
       const started = startTime || new Date();

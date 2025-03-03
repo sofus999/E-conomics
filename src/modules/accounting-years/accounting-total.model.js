@@ -2,11 +2,17 @@ const db = require('../../db');
 const logger = require('../core/logger');
 
 class AccountingTotalModel {
+  /**
+   * Find accounting total by account number, year, period number, and agreement number
+   */
   static async findByKeys(accountNumber, year, periodNumber, agreementNumber) {
     try {
+      // period_number 0 is used for year totals (null in database causes issues with primary key)
+      const periodValue = periodNumber === null ? 0 : periodNumber;
+      
       const totals = await db.query(
         'SELECT * FROM accounting_totals WHERE account_number = ? AND year = ? AND period_number = ? AND agreement_number = ?',
-        [accountNumber, year, periodNumber, agreementNumber]
+        [accountNumber, year, periodValue, agreementNumber]
       );
       
       return totals.length > 0 ? totals[0] : null;
@@ -16,34 +22,9 @@ class AccountingTotalModel {
     }
   }
 
-  static async getByPeriodYearAndAgreement(periodNumber, year, agreementNumber) {
-    try {
-      return await db.query(
-        `SELECT * FROM accounting_totals 
-         WHERE period_number = ? AND year = ? AND agreement_number = ? 
-         ORDER BY account_number`,
-        [periodNumber, year, agreementNumber]
-      );
-    } catch (error) {
-      logger.error(`Error getting accounting totals for period ${periodNumber}, year ${year} and agreement ${agreementNumber}:`, error.message);
-      throw error;
-    }
-  }
-  
-  static async getByYearAndAgreement(year, agreementNumber) {
-    try {
-      return await db.query(
-        `SELECT * FROM accounting_totals 
-         WHERE period_number IS NULL AND year = ? AND agreement_number = ? 
-         ORDER BY account_number`,
-        [year, agreementNumber]
-      );
-    } catch (error) {
-      logger.error(`Error getting accounting totals for year ${year} and agreement ${agreementNumber}:`, error.message);
-      throw error;
-    }
-  }
-
+  /**
+   * Batch insert or update multiple accounting totals
+   */
   static async batchUpsert(totals) {
     if (!totals || totals.length === 0) {
       return { inserted: 0, updated: 0 };
@@ -60,10 +41,13 @@ class AccountingTotalModel {
         
         await db.transaction(async (connection) => {
           for (const total of batch) {
+            // Handle null period_number (use 0 for year totals)
+            const periodValue = total.period_number === null ? 0 : total.period_number;
+            
             const existing = await this.findByKeys(
               total.account_number, 
               total.year, 
-              total.period_number, 
+              periodValue, 
               total.agreement_number
             );
             
@@ -81,7 +65,7 @@ class AccountingTotalModel {
                   total.to_date,
                   total.account_number,
                   total.year,
-                  total.period_number,
+                  periodValue,
                   total.agreement_number
                 ]
               );
@@ -100,7 +84,7 @@ class AccountingTotalModel {
                 [
                   total.account_number,
                   total.year,
-                  total.period_number,
+                  periodValue,
                   total.agreement_number,
                   total.total_in_base_currency,
                   total.from_date,
@@ -120,13 +104,16 @@ class AccountingTotalModel {
     }
   }
 
+  /**
+   * Record sync log for accounting totals
+   */
   static async recordSyncLog(agreementNumber, year, periodNumber, recordCount = 0, errorMessage = null, startTime = null) {
     try {
       const started = startTime || new Date();
       const completed = new Date();
       const durationMs = completed.getTime() - started.getTime();
       
-      const periodText = periodNumber ? `_${periodNumber}` : '';
+      const periodText = periodNumber === null ? '' : `_${periodNumber}`;
       
       await db.query(
         `INSERT INTO sync_logs (

@@ -1,8 +1,10 @@
 const db = require('../../db');
 const logger = require('../core/logger');
-const { ApiError } = require('../core/error.handler');
 
 class AccountingYearModel {
+  /**
+   * Find accounting year by year identifier and agreement number
+   */
   static async findByYearAndAgreement(year, agreementNumber) {
     try {
       const years = await db.query(
@@ -17,18 +19,9 @@ class AccountingYearModel {
     }
   }
 
-  static async getByAgreement(agreementNumber) {
-    try {
-      return await db.query(
-        'SELECT * FROM accounting_years WHERE agreement_number = ? ORDER BY start_date DESC',
-        [agreementNumber]
-      );
-    } catch (error) {
-      logger.error(`Error getting accounting years for agreement ${agreementNumber}:`, error.message);
-      throw error;
-    }
-  }
-
+  /**
+   * Create or update an accounting year
+   */
   static async upsert(yearData) {
     try {
       const existing = await this.findByYearAndAgreement(
@@ -84,6 +77,9 @@ class AccountingYearModel {
     }
   }
 
+  /**
+   * Record sync log for accounting years
+   */
   static async recordSyncLog(agreementNumber, recordCount = 0, errorMessage = null, startTime = null) {
     try {
       const started = startTime || new Date();

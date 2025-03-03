@@ -31,6 +31,14 @@ module.exports = {
   // Helper functions
   customerInvoices: (customerId, type = 'drafts') => `/customers/${customerId}/invoices/${type}`,
   suppliersByGroup: (groupId) => `/supplier-groups/${groupId}/suppliers`,
-  productsByGroup: (groupId) => `/product-groups/${groupId}/products`
+  productsByGroup: (groupId) => `/product-groups/${groupId}/products`,
+
+  // Helper functions for accounting years
+  accountingYearPeriods: (year) => `/accounting-years/${year}/periods`,
+  accountingYearPeriod: (year, periodNumber) => `/accounting-years/${year}/periods/${periodNumber}`,
+  accountingYearEntries: (year) => `/accounting-years/${year}/entries`,
+  accountingYearTotals: (year) => `/accounting-years/${year}/totals`,
+  accountingPeriodEntries: (year, periodNumber) => `/accounting-years/${year}/periods/${periodNumber}/entries`,
+  accountingPeriodTotals: (year, periodNumber) => `/accounting-years/${year}/periods/${periodNumber}/totals`
   
 };
