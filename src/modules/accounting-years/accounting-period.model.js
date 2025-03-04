@@ -1,20 +1,21 @@
+// src/modules/accounting-years/accounting-period.model.js
 const db = require('../../db');
 const logger = require('../core/logger');
 
 class AccountingPeriodModel {
   /**
-   * Find accounting period by period number, year, and agreement number
+   * Find accounting period by period number, year ID, and agreement number
    */
-  static async findByNumberYearAndAgreement(periodNumber, year, agreementNumber) {
+  static async findByNumberYearAndAgreement(periodNumber, yearId, agreementNumber) {
     try {
       const periods = await db.query(
-        'SELECT * FROM accounting_periods WHERE period_number = ? AND year = ? AND agreement_number = ?',
-        [periodNumber, year, agreementNumber]
+        'SELECT * FROM accounting_periods WHERE period_number = ? AND year_id = ? AND agreement_number = ?',
+        [periodNumber, yearId, agreementNumber]
       );
       
       return periods.length > 0 ? periods[0] : null;
     } catch (error) {
-      logger.error(`Error finding accounting period by number ${periodNumber}, year ${year} and agreement ${agreementNumber}:`, error.message);
+      logger.error(`Error finding accounting period by number ${periodNumber}, year ${yearId} and agreement ${agreementNumber}:`, error.message);
       throw error;
     }
   }
@@ -26,7 +27,7 @@ class AccountingPeriodModel {
     try {
       const existing = await this.findByNumberYearAndAgreement(
         periodData.period_number,
-        periodData.year,
+        periodData.year_id,
         periodData.agreement_number
       );
       
@@ -38,14 +39,14 @@ class AccountingPeriodModel {
             barred = ?,
             self_url = ?,
             updated_at = CURRENT_TIMESTAMP
-          WHERE period_number = ? AND year = ? AND agreement_number = ?`,
+          WHERE period_number = ? AND year_id = ? AND agreement_number = ?`,
           [
             periodData.from_date,
             periodData.to_date,
             periodData.barred || false,
             periodData.self_url,
             periodData.period_number,
-            periodData.year,
+            periodData.year_id,
             periodData.agreement_number
           ]
         );
@@ -55,7 +56,7 @@ class AccountingPeriodModel {
         await db.query(
           `INSERT INTO accounting_periods (
             period_number,
-            year,
+            year_id,
             agreement_number,
             from_date,
             to_date,
@@ -64,7 +65,7 @@ class AccountingPeriodModel {
           ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             periodData.period_number,
-            periodData.year,
+            periodData.year_id,
             periodData.agreement_number,
             periodData.from_date,
             periodData.to_date,
@@ -84,7 +85,7 @@ class AccountingPeriodModel {
   /**
    * Record sync log for accounting periods
    */
-  static async recordSyncLog(agreementNumber, year, recordCount = 0, errorMessage = null, startTime = null) {
+  static async recordSyncLog(agreementNumber, yearId, recordCount = 0, errorMessage = null, startTime = null) {
     try {
       const started = startTime || new Date();
       const completed = new Date();
@@ -96,7 +97,7 @@ class AccountingPeriodModel {
           error_message, started_at, completed_at, duration_ms
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          `accounting_periods_${year}_${agreementNumber}`,
+          `accounting_periods_${yearId}_${agreementNumber}`,
           'sync',
           recordCount,
           errorMessage ? 'error' : 'success',
@@ -108,7 +109,7 @@ class AccountingPeriodModel {
       );
       
       return {
-        entity: `accounting_periods_${year}_${agreementNumber}`,
+        entity: `accounting_periods_${yearId}_${agreementNumber}`,
         operation: 'sync',
         status: errorMessage ? 'error' : 'success',
         recordCount,

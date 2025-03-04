@@ -1,20 +1,21 @@
+// src/modules/accounting-years/accounting-entry.model.js
 const db = require('../../db');
 const logger = require('../core/logger');
 
 class AccountingEntryModel {
   /**
-   * Find accounting entry by entry number, year, and agreement number
+   * Find accounting entry by entry number, year ID, and agreement number
    */
-  static async findByEntryNumberYearAndAgreement(entryNumber, year, agreementNumber) {
+  static async findByEntryNumberYearAndAgreement(entryNumber, yearId, agreementNumber) {
     try {
       const entries = await db.query(
-        'SELECT * FROM accounting_entries WHERE entry_number = ? AND year = ? AND agreement_number = ?',
-        [entryNumber, year, agreementNumber]
+        'SELECT * FROM accounting_entries WHERE entry_number = ? AND year_id = ? AND agreement_number = ?',
+        [entryNumber, yearId, agreementNumber]
       );
       
       return entries.length > 0 ? entries[0] : null;
     } catch (error) {
-      logger.error(`Error finding accounting entry by number ${entryNumber}, year ${year} and agreement ${agreementNumber}:`, error.message);
+      logger.error(`Error finding accounting entry by number ${entryNumber}, year ${yearId} and agreement ${agreementNumber}:`, error.message);
       throw error;
     }
   }
@@ -40,7 +41,7 @@ class AccountingEntryModel {
           for (const entry of batch) {
             const existing = await this.findByEntryNumberYearAndAgreement(
               entry.entry_number, 
-              entry.year, 
+              entry.year_id, 
               entry.agreement_number
             );
             
@@ -58,7 +59,7 @@ class AccountingEntryModel {
                   voucher_number = ?,
                   self_url = ?,
                   updated_at = CURRENT_TIMESTAMP
-                WHERE entry_number = ? AND year = ? AND agreement_number = ?`,
+                WHERE entry_number = ? AND year_id = ? AND agreement_number = ?`,
                 [
                   entry.period_number,
                   entry.account_number,
@@ -71,7 +72,7 @@ class AccountingEntryModel {
                   entry.voucher_number,
                   entry.self_url,
                   entry.entry_number,
-                  entry.year,
+                  entry.year_id,
                   entry.agreement_number
                 ]
               );
@@ -80,7 +81,7 @@ class AccountingEntryModel {
               await connection.query(
                 `INSERT INTO accounting_entries (
                   entry_number,
-                  year,
+                  year_id,
                   period_number,
                   agreement_number,
                   account_number,
@@ -95,7 +96,7 @@ class AccountingEntryModel {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                   entry.entry_number,
-                  entry.year,
+                  entry.year_id,
                   entry.period_number,
                   entry.agreement_number,
                   entry.account_number,
@@ -125,7 +126,7 @@ class AccountingEntryModel {
   /**
    * Record sync log for accounting entries
    */
-  static async recordSyncLog(agreementNumber, year, periodNumber, recordCount = 0, errorMessage = null, startTime = null) {
+  static async recordSyncLog(agreementNumber, yearId, periodNumber, recordCount = 0, errorMessage = null, startTime = null) {
     try {
       const started = startTime || new Date();
       const completed = new Date();
@@ -137,7 +138,7 @@ class AccountingEntryModel {
           error_message, started_at, completed_at, duration_ms
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          `accounting_entries_${year}_${periodNumber}_${agreementNumber}`,
+          `accounting_entries_${yearId}_${periodNumber}_${agreementNumber}`,
           'sync',
           recordCount,
           errorMessage ? 'error' : 'success',
@@ -149,7 +150,7 @@ class AccountingEntryModel {
       );
       
       return {
-        entity: `accounting_entries_${year}_${periodNumber}_${agreementNumber}`,
+        entity: `accounting_entries_${yearId}_${periodNumber}_${agreementNumber}`,
         operation: 'sync',
         status: errorMessage ? 'error' : 'success',
         recordCount,

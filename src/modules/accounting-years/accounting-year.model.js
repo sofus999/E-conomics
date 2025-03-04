@@ -1,3 +1,4 @@
+// src/modules/accounting-years/accounting-year.model.js
 const db = require('../../db');
 const logger = require('../core/logger');
 
@@ -5,16 +6,16 @@ class AccountingYearModel {
   /**
    * Find accounting year by year identifier and agreement number
    */
-  static async findByYearAndAgreement(year, agreementNumber) {
+  static async findByYearAndAgreement(yearId, agreementNumber) {
     try {
       const years = await db.query(
-        'SELECT * FROM accounting_years WHERE year = ? AND agreement_number = ?',
-        [year, agreementNumber]
+        'SELECT * FROM accounting_years WHERE year_id = ? AND agreement_number = ?',
+        [yearId, agreementNumber]
       );
       
       return years.length > 0 ? years[0] : null;
     } catch (error) {
-      logger.error(`Error finding accounting year by year ${year} and agreement ${agreementNumber}:`, error.message);
+      logger.error(`Error finding accounting year by year ${yearId} and agreement ${agreementNumber}:`, error.message);
       throw error;
     }
   }
@@ -25,7 +26,7 @@ class AccountingYearModel {
   static async upsert(yearData) {
     try {
       const existing = await this.findByYearAndAgreement(
-        yearData.year, 
+        yearData.year_id, 
         yearData.agreement_number
       );
       
@@ -37,13 +38,13 @@ class AccountingYearModel {
             closed = ?,
             self_url = ?,
             updated_at = CURRENT_TIMESTAMP
-          WHERE year = ? AND agreement_number = ?`,
+          WHERE year_id = ? AND agreement_number = ?`,
           [
             yearData.start_date,
             yearData.end_date,
             yearData.closed || false,
             yearData.self_url,
-            yearData.year,
+            yearData.year_id,
             yearData.agreement_number
           ]
         );
@@ -52,7 +53,7 @@ class AccountingYearModel {
       } else {
         await db.query(
           `INSERT INTO accounting_years (
-            year,
+            year_id,
             agreement_number,
             start_date,
             end_date,
@@ -60,7 +61,7 @@ class AccountingYearModel {
             self_url
           ) VALUES (?, ?, ?, ?, ?, ?)`,
           [
-            yearData.year,
+            yearData.year_id,
             yearData.agreement_number,
             yearData.start_date,
             yearData.end_date,
