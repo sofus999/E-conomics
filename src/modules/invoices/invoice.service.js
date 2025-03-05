@@ -44,7 +44,9 @@ class InvoiceService {
       due_date: invoice.dueDate,
       net_amount: invoice.netAmount,
       gross_amount: invoice.grossAmount,
-      vat_amount: invoice.vatAmount
+      vat_amount: invoice.vatAmount,
+      remainder: invoice.remainder || 0,
+      remainder_in_base_currency: invoice.remainderInBaseCurrency || 0
     };
     
     // Set invoice number based on type
@@ -88,7 +90,7 @@ class InvoiceService {
     
     // Get customer number from the invoice
     const customerNumber = invoice.customer?.customerNumber || null;
-    
+
     return invoice.lines.map((line) => ({
       invoice_id: invoiceNumber,
       agreement_number: agreementNumber,
@@ -98,7 +100,7 @@ class InvoiceService {
       description: line.description,
       quantity: line.quantity,
       unit_price: line.unitNetPrice,
-      discount_percentage: line.discountPercentage,
+      discount_percentage: line.discountPercentage > 100 ? 100 : (line.discountPercentage || 0),
       unit: line.unit?.name,
       total_net_amount: line.totalNetAmount
     }));

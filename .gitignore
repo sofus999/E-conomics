@@ -3,3 +3,5 @@ logs/
 .env
 package-lock.json
 package.json
+package-app.bat
+test-connetion.bat

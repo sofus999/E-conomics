@@ -4,113 +4,121 @@ const { ApiError } = require('../core/error.handler');
 const { v4: uuidv4 } = require('uuid'); 
 
 class InvoiceModel {
-  // Smart upsert - uses invoice_number AND agreement_number to determine if record exists
-static async smartUpsert(invoiceData, agreementNumber) {
-  try {
-    // Add agreement_number to the data
-    invoiceData.agreement_number = agreementNumber;
-    
-    // For draft invoices, use the draft number as the invoice_number for the primary key
-    if (invoiceData.payment_status === 'draft' || !invoiceData.invoice_number) {
-      invoiceData.invoice_number = invoiceData.draft_invoice_number;
-    }
-    
-    // Safety check for required fields
-    if (!invoiceData.invoice_number) {
-      logger.error('Missing invoice_number in smartUpsert');
-      throw new Error('Missing invoice_number in invoice data');
-    }
-    
-    if (!invoiceData.customer_number) {
-      logger.error('Missing customer_number in smartUpsert');
-      throw new Error('Missing customer_number in invoice data');
-    }
-    
-    if (!agreementNumber) {
-      logger.error('Missing agreementNumber in smartUpsert');
-      throw new Error('Missing agreement_number parameter');
-    }
-    // Check if this specific invoice exists
-    const existing = await this.findByInvoiceAndAgreementNumber(
-      invoiceData.invoice_number, 
-      invoiceData.customer_number, 
-      agreementNumber
-    );
-    
-    if (existing) {
-      // Update existing record
-      await db.query(
-        `UPDATE invoices SET
-          draft_invoice_number = ?,
-          currency = ?,
-          exchange_rate = ?,
-          date = ?,
-          due_date = ?,
-          net_amount = ?,
-          gross_amount = ?,
-          vat_amount = ?,
-          payment_status = ?,
-          customer_name = ?,
-          reference_number = ?,
-          notes = ?,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE invoice_number = ? AND customer_number = ? AND agreement_number = ?`,
-        [
-          invoiceData.draft_invoice_number || null,
-          invoiceData.currency,
-          invoiceData.exchange_rate || null,
-          invoiceData.date,
-          invoiceData.due_date || null,
-          invoiceData.net_amount || 0,
-          invoiceData.gross_amount || 0,
-          invoiceData.vat_amount || 0,
-          invoiceData.payment_status || 'pending',
-          invoiceData.customer_name,
-          invoiceData.reference_number || null,
-          invoiceData.notes || null,
-          invoiceData.invoice_number,
-          invoiceData.customer_number,
-          invoiceData.agreement_number
-        ]
+
+  // Update to the smartUpsert method in invoice.model.js to include remainder values
+  static async smartUpsert(invoiceData, agreementNumber) {
+    try {
+      // Add agreement_number to the data
+      invoiceData.agreement_number = agreementNumber;
+      
+      // For draft invoices, use the draft number as the invoice_number for the primary key
+      if (invoiceData.payment_status === 'draft' || !invoiceData.invoice_number) {
+        invoiceData.invoice_number = invoiceData.draft_invoice_number;
+      }
+      
+      // Safety check for required fields
+      if (!invoiceData.invoice_number) {
+        logger.error('Missing invoice_number in smartUpsert');
+        throw new Error('Missing invoice_number in invoice data');
+      }
+      
+      if (!invoiceData.customer_number) {
+        logger.error('Missing customer_number in smartUpsert');
+        throw new Error('Missing customer_number in invoice data');
+      }
+      
+      if (!agreementNumber) {
+        logger.error('Missing agreementNumber in smartUpsert');
+        throw new Error('Missing agreement_number parameter');
+      }
+      
+      // Check if this specific invoice exists
+      const existing = await this.findByInvoiceAndAgreementNumber(
+        invoiceData.invoice_number, 
+        invoiceData.customer_number, 
+        agreementNumber
       );
       
-      return { ...existing, ...invoiceData };
-    } else {
-      // Insert new record
-      await db.query(
-        `INSERT INTO invoices (
-          invoice_number, draft_invoice_number, customer_number, agreement_number,
-          currency, exchange_rate, date, due_date,
-          net_amount, gross_amount, vat_amount,
-          payment_status, customer_name,
-          reference_number, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          invoiceData.invoice_number, // This must have a value now
-          invoiceData.draft_invoice_number || null,
-          invoiceData.customer_number,
-          invoiceData.agreement_number,
-          invoiceData.currency,
-          invoiceData.exchange_rate || null,
-          invoiceData.date,
-          invoiceData.due_date || null,
-          invoiceData.net_amount || 0,
-          invoiceData.gross_amount || 0,
-          invoiceData.vat_amount || 0,
-          invoiceData.payment_status || 'pending',
-          invoiceData.customer_name,
-          invoiceData.reference_number || null,
-          invoiceData.notes || null
-        ]
-      );
-      
-      return invoiceData;
+      if (existing) {
+        // Update existing record
+        await db.query(
+          `UPDATE invoices SET
+            draft_invoice_number = ?,
+            currency = ?,
+            exchange_rate = ?,
+            date = ?,
+            due_date = ?,
+            net_amount = ?,
+            gross_amount = ?,
+            vat_amount = ?,
+            remainder = ?,
+            remainder_in_base_currency = ?,
+            payment_status = ?,
+            customer_name = ?,
+            reference_number = ?,
+            notes = ?,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE invoice_number = ? AND customer_number = ? AND agreement_number = ?`,
+          [
+            invoiceData.draft_invoice_number || null,
+            invoiceData.currency,
+            invoiceData.exchange_rate || null,
+            invoiceData.date,
+            invoiceData.due_date || null,
+            invoiceData.net_amount || 0,
+            invoiceData.gross_amount || 0,
+            invoiceData.vat_amount || 0,
+            invoiceData.remainder || 0,
+            invoiceData.remainder_in_base_currency || 0,
+            invoiceData.payment_status || 'pending',
+            invoiceData.customer_name,
+            invoiceData.reference_number || null,
+            invoiceData.notes || null,
+            invoiceData.invoice_number,
+            invoiceData.customer_number,
+            invoiceData.agreement_number
+          ]
+        );
+        
+        return { ...existing, ...invoiceData };
+      } else {
+        // Insert new record
+        await db.query(
+          `INSERT INTO invoices (
+            invoice_number, draft_invoice_number, customer_number, agreement_number,
+            currency, exchange_rate, date, due_date,
+            net_amount, gross_amount, vat_amount, remainder, remainder_in_base_currency,
+            payment_status, customer_name,
+            reference_number, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            invoiceData.invoice_number, // This must have a value now
+            invoiceData.draft_invoice_number || null,
+            invoiceData.customer_number,
+            invoiceData.agreement_number,
+            invoiceData.currency,
+            invoiceData.exchange_rate || null,
+            invoiceData.date,
+            invoiceData.due_date || null,
+            invoiceData.net_amount || 0,
+            invoiceData.gross_amount || 0,
+            invoiceData.vat_amount || 0,
+            invoiceData.remainder || 0,
+            invoiceData.remainder_in_base_currency || 0,
+            invoiceData.payment_status || 'pending',
+            invoiceData.customer_name,
+            invoiceData.reference_number || null,
+            invoiceData.notes || null
+          ]
+        );
+        
+        return invoiceData;
+      }
+    } catch (error) {
+      logger.error(`Error upserting invoice:`, error.message);
+      throw error;
     }
-  } catch (error) {
-    logger.error(`Error upserting invoice:`, error.message);
-    throw error;
   }
-}
   
   // Create a new invoice in the database
   static async create(invoiceData) {
