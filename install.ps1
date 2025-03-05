@@ -46,7 +46,7 @@ if (-not (Test-Path $nodePath)) {
 Write-Host "✓ Node.js found at $nodePath" -ForegroundColor Green
 
 # Check for MariaDB
-$mariaDBPath = "C:\Program Files\MariaDB 10.11\bin\mysql.exe"
+$mariaDBPath = "C:\Program Files\MariaDB 11.7\bin\mysql.exe"
 if (-not (Test-Path $mariaDBPath)) {
     Write-Host "MariaDB not found. Installing..." -ForegroundColor Yellow
     
@@ -70,7 +70,7 @@ if (-not (Test-Path $mariaDBPath)) {
 
     # Install MariaDB
     Write-Host "Installing MariaDB..." -ForegroundColor Cyan
-    $rootPassword = "9A421C35!CA" # You might want to make this configurable
+    $rootPassword = "Jrv2r4nxh!" # You might want to make this configurable
     $installArgs = "/i `"$installerPath`" /qn SERVICENAME=MariaDB ROOT_PASSWORD=`"$rootPassword`""
     
     try {
