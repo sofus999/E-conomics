@@ -70,7 +70,7 @@ if (-not (Test-Path $mariaDBPath)) {
 
     # Install MariaDB
     Write-Host "Installing MariaDB..." -ForegroundColor Cyan
-    $rootPassword = "Jrv2r4nxh!" # You might want to make this configurable
+    $rootPassword = ""
     $installArgs = "/i `"$installerPath`" /qn SERVICENAME=MariaDB ROOT_PASSWORD=`"$rootPassword`""
     
     try {
