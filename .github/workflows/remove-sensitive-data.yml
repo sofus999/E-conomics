@@ -1,0 +1,30 @@
+name: Remove Sensitive Data
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  remove-sensitive-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Install git-filter-repo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          sudo pip3 install git-filter-repo
+
+      - name: Rewrite history to remove sensitive data
+        run: |
+          git filter-repo --path 'install.ps1' --invert-paths
+
+      - name: Force push to main branch
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin --force --all
