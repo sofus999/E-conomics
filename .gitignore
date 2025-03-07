@@ -1,7 +1,6 @@
 node_modules/
 logs/
 .env
-#package-lock.json
-#package.json
-package-app.bat
-test-connetion.bat
+package-lock.json
+package.json
+test-connection.sh
