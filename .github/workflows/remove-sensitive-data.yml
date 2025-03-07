@@ -23,6 +23,7 @@ jobs:
       - name: Rewrite history to remove sensitive data
         run: |
           git filter-repo --path 'install.ps1' --invert-paths
+           git filter-repo --path 'setup-db.js' --invert-paths
 
       - name: Force push to main branch
         run: |
